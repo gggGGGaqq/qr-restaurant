@@ -1,0 +1,16 @@
+{
+  "name": "QR-заказы в ресторане",
+  "short_name": "QR-заказы",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f6",
+  "theme_color": "#f5f7f6",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
