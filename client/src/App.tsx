@@ -44,6 +44,9 @@ export function App() {
       <AnimatePresence mode="wait">
         <motion.div
           key={pageKey}
+          onCopy={(event) => event.preventDefault()}
+          onCut={(event) => event.preventDefault()}
+          onDragStart={(event) => event.preventDefault()}
           initial={{ opacity: 0, y: 26, filter: "blur(10px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           exit={{ opacity: 0, y: -16, filter: "blur(8px)" }}

@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   BellRing,
-  CheckCircle2,
   Droplets,
   Minus,
   Plus,
@@ -241,6 +240,8 @@ const CustomerMenuCard = memo(
             src={imageSrc}
             alt={item.name}
             loading="lazy"
+            draggable={false}
+            onContextMenu={(event) => event.preventDefault()}
             onError={() => onImageError(item.id)}
           />
         </div>
@@ -338,8 +339,6 @@ export function CustomerApp() {
             addedToCart: "Себетке қосылды",
             orderReadyNotice: (orderCode: string) => `Тапсырыс ${orderCode} дайын`,
             serviceProcessed: "Даяшы сұрауды орындады",
-            latestReady: "Соңғысы: дайын",
-            latestInProgress: "Соңғысы: жұмыста",
             offline: "Желі жоқ. Тапсырыстар мен мәртебелер кейінірек жаңаруы мүмкін.",
             reconnecting: "Сервермен байланыс қайта орнатылып жатыр...",
             todayInMenu: "Бүгінгі мәзір",
@@ -361,9 +360,7 @@ export function CustomerApp() {
             cart: "Себет",
             cartCaption: (count: number) => `${count} орын`,
             closeCart: "Себетті жабу",
-            dishNotePlaceholder:
-              "Тағамға түсініктеме: пиязсыз, аллергия бар, кейінірек әкеліңіз",
-            orderNotePlaceholder: "Барлық тапсырысқа ортақ түсініктеме",
+            orderNotePlaceholder: "Түсініктеме",
             submitOrder: "Тапсырысты рәсімдеу",
             sending: "Жіберілуде...",
             orderSent: "Тапсырыс даяшыға жіберілді",
@@ -379,8 +376,6 @@ export function CustomerApp() {
             addedToCart: "Добавлено в корзину",
             orderReadyNotice: (orderCode: string) => `Заказ ${orderCode} готов`,
             serviceProcessed: "Официант обработал запрос",
-            latestReady: "Последний: готов",
-            latestInProgress: "Последний: в работе",
             offline: "Нет сети. Заказы и статусы могут обновляться позже.",
             reconnecting: "Подключение к серверу восстанавливается...",
             todayInMenu: "Сегодня в меню",
@@ -402,9 +397,7 @@ export function CustomerApp() {
             cart: "Корзина",
             cartCaption: (count: number) => `${count} позиц.`,
             closeCart: "Закрыть корзину",
-            dishNotePlaceholder:
-              "Комментарий к блюду: без лука, аллергия, подать позже",
-            orderNotePlaceholder: "Комментарий ко всему заказу",
+            orderNotePlaceholder: "Комментарий",
             submitOrder: "Оформить заказ",
             sending: "Отправка...",
             orderSent: "Заказ отправлен официанту",
@@ -548,7 +541,6 @@ export function CustomerApp() {
     () => cart.reduce((sum, line) => sum + line.qty, 0),
     [cart],
   );
-  const latestOrder = orders[0];
 
   function formatError(errorValue: unknown): string {
     if (errorValue instanceof ApiError) return errorValue.message;
@@ -788,10 +780,6 @@ export function CustomerApp() {
     );
   }
 
-  function changeLineNote(lineId: string, note: string) {
-    setCart((current) => current.map((line) => (line.id === lineId ? { ...line, note } : line)));
-  }
-
   function scrollToCategory(id: MenuCategory) {
     sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
     setActiveCategory(id);
@@ -1001,6 +989,8 @@ export function CustomerApp() {
                       src={resolvedImageById[line.item.id]}
                       alt={line.item.name}
                       loading="lazy"
+                      draggable={false}
+                      onContextMenu={(event) => event.preventDefault()}
                       onError={() => markImageFailed(line.item.id)}
                     />
                     <div className="cart-sheet__item-copy">
@@ -1021,12 +1011,6 @@ export function CustomerApp() {
                         <Plus size={16} />
                       </button>
                     </div>
-                    <textarea
-                      value={line.note}
-                      onChange={(event) => changeLineNote(line.id, event.target.value)}
-                      placeholder={screenCopy.dishNotePlaceholder}
-                      maxLength={300}
-                    />
                   </div>
                 ))}
               </div>
@@ -1076,12 +1060,6 @@ export function CustomerApp() {
           </div>
           <div className="customer-header__aside">
             <LanguageSwitcher />
-            {latestOrder && (
-              <div className="order-mini-status">
-                <CheckCircle2 size={16} />
-                <span>{latestOrder.status === "READY" ? screenCopy.latestReady : screenCopy.latestInProgress}</span>
-              </div>
-            )}
           </div>
         </header>
 
