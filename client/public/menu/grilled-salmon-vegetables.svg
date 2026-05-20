@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#dcefe5"/>
+      <stop offset="1" stop-color="#f0a45d"/>
+    </linearGradient>
+    <linearGradient id="fish" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffb08c"/>
+      <stop offset="1" stop-color="#e5674d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg)"/>
+  <circle cx="198" cy="186" r="128" fill="#ffffff" opacity=".3"/>
+  <ellipse cx="600" cy="536" rx="430" ry="238" fill="#223a2e" opacity=".2"/>
+  <ellipse cx="600" cy="496" rx="394" ry="222" fill="#fffaf0"/>
+  <path d="M310 498c126-116 370-150 568-54 24 12 24 46 0 60-200 116-452 94-568 18-14-10-14-14 0-24z" fill="url(#fish)"/>
+  <path d="M332 504c136 42 318 44 502-34" fill="none" stroke="#fff4e6" stroke-width="18" stroke-linecap="round" opacity=".72"/>
+  <g stroke="#74392f" stroke-width="10" stroke-linecap="round" opacity=".42">
+    <path d="M466 390l-46 220"/>
+    <path d="M586 374l-48 248"/>
+    <path d="M706 386l-48 224"/>
+  </g>
+  <g>
+    <rect x="710" y="594" width="176" height="42" rx="21" fill="#4f8a3d" transform="rotate(-12 798 615)"/>
+    <rect x="766" y="644" width="150" height="38" rx="19" fill="#efc247" transform="rotate(16 841 663)"/>
+    <rect x="288" y="604" width="164" height="42" rx="21" fill="#eb6d3d" transform="rotate(16 370 625)"/>
+    <circle cx="914" cy="420" r="48" fill="#f5d565"/>
+    <path d="M906 386l16 68M884 408l60 26" stroke="#fff6c7" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>

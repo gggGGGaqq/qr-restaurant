@@ -1,4 +1,4 @@
-import { type CSSProperties, type FormEvent, Fragment, memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type FormEvent, Fragment, memo, type MouseEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -88,6 +88,14 @@ type CartItemView = CartLine & {
   lineTotal: number;
 };
 
+interface FlyToCartAnimation {
+  id: number;
+  imageSrc: string;
+  name: string;
+  from: { x: number; y: number; size: number };
+  to: { x: number; y: number; size: number };
+}
+
 type CustomerRoute =
   | { kind: "entry" }
   | { kind: "table"; tableId: string }
@@ -107,6 +115,14 @@ const menuImageByItemId: Record<number, string> = {
   4: "/menu/burrata-salad.jpg",
   5: "/menu/chocolate-tart.jpg",
   6: "/menu/citrus-sparkling.jpg",
+  7: "/menu/dumplings-broth.svg",
+  8: "/menu/tomato-basil-pasta.svg",
+  9: "/menu/grilled-salmon-vegetables.svg",
+  10: "/menu/chicken-caesar.svg",
+  11: "/menu/quinoa-avocado-salad.svg",
+  12: "/menu/berry-cheesecake.svg",
+  13: "/menu/sea-buckthorn-mors.svg",
+  14: "/menu/vanilla-iced-latte.svg",
 };
 
 function escapeXml(value: string): string {
@@ -191,7 +207,7 @@ interface CustomerMenuCardProps {
   language: "ru" | "kk";
   animationIndex: number;
   onToggleModifier: (menuItemId: number, modifierId: number) => void;
-  onAdd: (menuItemId: number) => void;
+  onAdd: (menuItemId: number, trigger: HTMLElement) => void;
   onImageError: (itemId: number) => void;
 }
 
@@ -262,7 +278,7 @@ const CustomerMenuCard = memo(
               type="button"
               className="button button-primary menu-card__add"
               whileTap={{ scale: 0.97 }}
-              onClick={() => onAdd(item.id)}
+              onClick={(event: MouseEvent<HTMLButtonElement>) => onAdd(item.id, event.currentTarget)}
             >
               <Plus size={16} strokeWidth={2.5} /> {addLabel}
             </motion.button>
@@ -306,6 +322,7 @@ export function CustomerApp() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
+  const [flyToCart, setFlyToCart] = useState<FlyToCartAnimation | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const ordersSectionRef = useRef<HTMLElement | null>(null);
   const hasTableContext = isCustomerRouteOpen(customerRoute);
@@ -671,25 +688,51 @@ export function CustomerApp() {
 
   useEffect(() => {
     if (groupedMenu.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) {
-          const nextCategory = visible[0].target.getAttribute("data-category") as MenuCategory | null;
-          if (nextCategory) setActiveCategory(nextCategory);
+    let frameId = 0;
+
+    const syncActiveCategory = () => {
+      frameId = 0;
+      const stickyBottom =
+        document.querySelector(".category-nav")?.getBoundingClientRect().bottom ??
+        document.querySelector(".menu-toolbar")?.getBoundingClientRect().bottom ??
+        96;
+      const anchorY = stickyBottom + 18;
+      let nextCategory = groupedMenu[0]?.id;
+
+      for (const group of groupedMenu) {
+        const node = sectionRefs.current[group.id];
+        if (!node) continue;
+
+        const rect = node.getBoundingClientRect();
+        if (rect.top <= anchorY && rect.bottom > anchorY) {
+          nextCategory = group.id;
+          break;
         }
-      },
-      { rootMargin: "-32% 0px -52% 0px", threshold: [0.16, 0.4, 0.7] },
-    );
 
-    groupedMenu.forEach((group) => {
-      const node = sectionRefs.current[group.id];
-      if (node) observer.observe(node);
-    });
+        if (rect.top <= anchorY) {
+          nextCategory = group.id;
+        }
+      }
 
-    return () => observer.disconnect();
+      if (nextCategory) {
+        setActiveCategory((current) => (current === nextCategory ? current : nextCategory));
+      }
+    };
+
+    const requestSync = () => {
+      if (frameId !== 0) return;
+      frameId = window.requestAnimationFrame(syncActiveCategory);
+    };
+
+    syncActiveCategory();
+    window.addEventListener("scroll", requestSync, { passive: true });
+    window.addEventListener("resize", requestSync);
+
+    return () => {
+      if (frameId !== 0) window.cancelAnimationFrame(frameId);
+      window.removeEventListener("scroll", requestSync);
+      window.removeEventListener("resize", requestSync);
+    };
   }, [groupedMenu]);
 
   function toggleModifier(menuItemId: number, modifierId: number) {
@@ -702,10 +745,44 @@ export function CustomerApp() {
     });
   }
 
-  function addOne(menuItemId: number) {
+  function startFlyToCart(menuItemId: number, trigger: HTMLElement) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const item = menuById.get(menuItemId);
+    const cardImage = trigger
+      .closest(".menu-card")
+      ?.querySelector(".menu-card__image-wrap img");
+    const sourceRect = (cardImage ?? trigger).getBoundingClientRect();
+    const cartRect = document.querySelector(".cart-fab")?.getBoundingClientRect();
+    const size = Math.min(74, Math.max(46, Math.min(sourceRect.width, sourceRect.height) * 0.42));
+    const targetSize = 30;
+    const fallbackTarget = {
+      x: window.innerWidth / 2 - targetSize / 2,
+      y: window.innerHeight - Math.max(76, targetSize + 26),
+    };
+
+    setFlyToCart({
+      id: Date.now(),
+      imageSrc: resolvedImageById[menuItemId] ?? item?.defaultImage ?? createFoodPlaceholder(item?.name ?? "Dish"),
+      name: item?.name ?? "",
+      from: {
+        x: sourceRect.left + sourceRect.width / 2 - size / 2,
+        y: sourceRect.top + sourceRect.height / 2 - size / 2,
+        size,
+      },
+      to: {
+        x: cartRect ? cartRect.left + cartRect.width / 2 - targetSize / 2 : fallbackTarget.x,
+        y: cartRect ? cartRect.top + cartRect.height / 2 - targetSize / 2 : fallbackTarget.y,
+        size: targetSize,
+      },
+    });
+  }
+
+  function addOne(menuItemId: number, trigger: HTMLElement) {
     const modifierIds = selectedModifiers[menuItemId] ?? [];
     const key = cartKey(menuItemId, modifierIds, "");
 
+    startFlyToCart(menuItemId, trigger);
     setCart((current) => {
       const existing = current.find((line) => cartKey(line.menuItemId, line.modifierIds, line.note) === key);
       if (existing) {
@@ -870,6 +947,40 @@ export function CustomerApp() {
             <span className="cart-fab__badge">{cartCount}</span>
             <span className="cart-fab__total">{formatMoney(cartTotal, language)}</span>
           </motion.button>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {flyToCart && (
+          <motion.div
+            key={flyToCart.id}
+            className="add-to-cart-flight"
+            style={{
+              width: flyToCart.from.size,
+              height: flyToCart.from.size,
+              backgroundImage: `url("${flyToCart.imageSrc}")`,
+            }}
+            initial={{
+              x: flyToCart.from.x,
+              y: flyToCart.from.y,
+              scale: 1,
+              opacity: 0.96,
+              rotate: -4,
+            }}
+            animate={{
+              x: flyToCart.to.x,
+              y: flyToCart.to.y,
+              scale: flyToCart.to.size / flyToCart.from.size,
+              opacity: 0,
+              rotate: 8,
+            }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.68, ease: [0.22, 0.8, 0.2, 1] }}
+            onAnimationComplete={() => {
+              setFlyToCart((current) => (current?.id === flyToCart.id ? null : current));
+            }}
+            aria-hidden="true"
+          />
         )}
       </AnimatePresence>
 
@@ -1072,17 +1183,26 @@ export function CustomerApp() {
                     </button>
                   )}
                 </label>
-                <button
-                  type="button"
-                  className="orders-shortcut"
-                  onClick={scrollToOrders}
-                  aria-label={screenCopy.yourOrders}
-                  title={screenCopy.yourOrders}
-                >
-                  <ReceiptText size={18} />
-                  <span>{screenCopy.yourOrders}</span>
-                  <strong>{orders.length}</strong>
-                </button>
+                <AnimatePresence initial={false}>
+                  {orders.length > 0 && (
+                    <motion.button
+                      key="orders-shortcut"
+                      type="button"
+                      className="orders-shortcut"
+                      onClick={scrollToOrders}
+                      aria-label={screenCopy.yourOrders}
+                      title={screenCopy.yourOrders}
+                      initial={{ opacity: 0, scale: 0.92, x: 8 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.92, x: 8 }}
+                      transition={{ duration: 0.18, ease: "easeOut" }}
+                    >
+                      <ReceiptText size={18} />
+                      <span>{screenCopy.yourOrders}</span>
+                      <strong>{orders.length}</strong>
+                    </motion.button>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
