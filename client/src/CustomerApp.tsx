@@ -29,7 +29,6 @@ import {
   placeOrder,
 } from "./api";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
-import { OrderCard } from "./components/OrderCard";
 import { Skeleton } from "./components/Skeleton";
 import {
   localizeMenuItemDescription,
@@ -317,6 +316,7 @@ export function CustomerApp() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<MenuCategory>("hot");
   const [cartOpen, setCartOpen] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(false);
   const [lastActionText, setLastActionText] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
@@ -324,7 +324,6 @@ export function CustomerApp() {
   const [addFeedback, setAddFeedback] = useState<AddFeedbackAnimation | null>(null);
   const [cartPulseKey, setCartPulseKey] = useState(0);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
-  const ordersSectionRef = useRef<HTMLElement | null>(null);
   const hasTableContext = isCustomerRouteOpen(customerRoute);
 
   const screenCopy = useMemo(
@@ -336,7 +335,6 @@ export function CustomerApp() {
             tableCode: "Үстел коды",
             insertQrCode: "QR кодын енгізіңіз",
             open: copy.common.open,
-            addedToCart: "Себетке қосылды",
             orderReadyNotice: (orderCode: string) => `Тапсырыс ${orderCode} дайын`,
             serviceProcessed: "Даяшы сұрауды орындады",
             offline: "Желі жоқ. Тапсырыстар мен мәртебелер кейінірек жаңаруы мүмкін.",
@@ -373,7 +371,6 @@ export function CustomerApp() {
             tableCode: "Код стола",
             insertQrCode: "Вставьте код из QR",
             open: copy.common.open,
-            addedToCart: "Добавлено в корзину",
             orderReadyNotice: (orderCode: string) => `Заказ ${orderCode} готов`,
             serviceProcessed: "Официант обработал запрос",
             offline: "Нет сети. Заказы и статусы могут обновляться позже.",
@@ -535,8 +532,13 @@ export function CustomerApp() {
     () => cartItems.reduce((sum, line) => sum + line.lineTotal, 0),
     [cartItems],
   );
-  const serviceFee = cartSubtotal * settings.serviceRate;
-  const cartTotal = cartSubtotal + serviceFee;
+  const cartTotal = cartSubtotal;
+  const ordersSubtotal = useMemo(
+    () => orders.reduce((sum, order) => sum + order.total, 0),
+    [orders],
+  );
+  const ordersServiceFee = ordersSubtotal * settings.serviceRate;
+  const ordersTotal = ordersSubtotal + ordersServiceFee;
   const cartCount = useMemo(
     () => cart.reduce((sum, line) => sum + line.qty, 0),
     [cart],
@@ -769,7 +771,6 @@ export function CustomerApp() {
         },
       ];
     });
-    setLastActionText(screenCopy.addedToCart);
   }
 
   function changeLineQty(lineId: string, delta: number) {
@@ -783,10 +784,6 @@ export function CustomerApp() {
   function scrollToCategory(id: MenuCategory) {
     sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
     setActiveCategory(id);
-  }
-
-  function scrollToOrders() {
-    ordersSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function submitOrder() {
@@ -812,8 +809,8 @@ export function CustomerApp() {
       setCart([]);
       setOrderNote("");
       setCartOpen(false);
+      setOrdersOpen(true);
       setLastActionText(screenCopy.orderSent);
-      window.setTimeout(scrollToOrders, 180);
     } catch (requestError) {
       setError(formatError(requestError));
     } finally {
@@ -1027,10 +1024,6 @@ export function CustomerApp() {
                   <span>{copy.common.subtotal}</span>
                   <strong>{formatMoney(cartSubtotal, language)}</strong>
                 </div>
-                <div className="cart-sheet__summary-line">
-                  <span>{copy.common.serviceFee(Math.round(settings.serviceRate * 100))}</span>
-                  <strong>{formatMoney(serviceFee, language)}</strong>
-                </div>
                 <div className="cart-sheet__summary-total">
                   <span>{copy.common.totalDue}</span>
                   <strong>{formatMoney(cartTotal, language)}</strong>
@@ -1043,6 +1036,110 @@ export function CustomerApp() {
                   {placing ? screenCopy.sending : screenCopy.submitOrder}
                 </button>
               </footer>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {ordersOpen && (
+          <>
+            <motion.div
+              className="cart-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setOrdersOpen(false)}
+            />
+            <motion.aside
+              className="cart-sheet cart-sheet--orders"
+              initial={{ y: "100%", opacity: 0.9 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0.9 }}
+              transition={{ type: "spring", damping: 30, stiffness: 240, mass: 0.8 }}
+            >
+              <header>
+                <div>
+                  <p className="eyebrow">{copy.common.table(session?.tableNumber ?? "...")}</p>
+                  <h3>{screenCopy.yourOrders}</h3>
+                </div>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setOrdersOpen(false)}
+                  aria-label={copy.common.close}
+                  title={copy.common.close}
+                >
+                  <X size={18} />
+                </button>
+              </header>
+
+              <div className="orders-sheet__items">
+                {orders.length === 0 ? (
+                  <div className="empty-state">
+                    <ReceiptText size={22} />
+                    <p>{screenCopy.noOrders}</p>
+                  </div>
+                ) : (
+                  orders.map((order) => (
+                    <section className="orders-sheet__batch" key={order.id}>
+                      <div className="orders-sheet__batch-header">
+                        <div>
+                          <p className="eyebrow">{copy.common.order(order.id.slice(0, 8))}</p>
+                          <strong>{formatMoney(order.total, language)}</strong>
+                        </div>
+                        <span className={`status status-${order.status.toLowerCase()}`}>
+                          {copy.orderStatuses[order.status]}
+                        </span>
+                      </div>
+
+                      <div className="orders-sheet__lines">
+                        {order.items.map((item) => (
+                          <div className="orders-sheet__line" key={item.id}>
+                            <div>
+                              <span>
+                                {item.qty} x {localizeMenuItemName({ id: item.menuItemId, name: item.name }, language)}
+                              </span>
+                              {item.modifiers.length > 0 && (
+                                <small>
+                                  {item.modifiers
+                                    .map((modifier) =>
+                                      localizeModifierName(
+                                        { id: modifier.id, modifierId: modifier.modifierId, name: modifier.name },
+                                        language,
+                                      ),
+                                    )
+                                    .join(", ")}
+                                </small>
+                              )}
+                            </div>
+                            <strong>{formatMoney(item.lineTotal, language)}</strong>
+                          </div>
+                        ))}
+                      </div>
+
+                      {order.note && <p className="orders-sheet__note">{order.note}</p>}
+                    </section>
+                  ))
+                )}
+              </div>
+
+              {orders.length > 0 && (
+                <footer>
+                  <div className="cart-sheet__summary-line">
+                    <span>{copy.common.subtotal}</span>
+                    <strong>{formatMoney(ordersSubtotal, language)}</strong>
+                  </div>
+                  <div className="cart-sheet__summary-line">
+                    <span>{copy.common.serviceFee(Math.round(settings.serviceRate * 100))}</span>
+                    <strong>{formatMoney(ordersServiceFee, language)}</strong>
+                  </div>
+                  <div className="cart-sheet__summary-total">
+                    <span>{copy.common.totalDue}</span>
+                    <strong>{formatMoney(ordersTotal, language)}</strong>
+                  </div>
+                </footer>
+              )}
             </motion.aside>
           </>
         )}
@@ -1144,7 +1241,7 @@ export function CustomerApp() {
                       key="orders-shortcut"
                       type="button"
                       className="orders-shortcut"
-                      onClick={scrollToOrders}
+                      onClick={() => setOrdersOpen(true)}
                       aria-label={screenCopy.yourOrders}
                       title={screenCopy.yourOrders}
                       initial={{ opacity: 0, scale: 0.92, x: 8 }}
@@ -1229,26 +1326,6 @@ export function CustomerApp() {
               </div>
             )}
 
-            <section className="orders-section" ref={ordersSectionRef}>
-              <div className="section-title-row">
-                <h2>{screenCopy.yourOrders}</h2>
-                <span>{orders.length}</span>
-              </div>
-              {orders.length === 0 ? (
-                <div className="empty-state">
-                  <ReceiptText size={22} />
-                  <p>{screenCopy.noOrders}</p>
-                </div>
-              ) : (
-                <div className="order-stack">
-                  <AnimatePresence initial={false}>
-                    {orders.map((order) => (
-                      <OrderCard key={order.id} order={order} />
-                    ))}
-                  </AnimatePresence>
-                </div>
-              )}
-            </section>
           </>
         )}
       </main>
