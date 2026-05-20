@@ -3,32 +3,22 @@ import { useLanguage } from "../i18n";
 
 export function LanguageSwitcher() {
   const { language, setLanguage, copy } = useLanguage();
+  const nextLanguage = language === "ru" ? "kk" : "ru";
+  const currentShort = language === "ru" ? copy.switcher.russianShort : copy.switcher.kazakhShort;
+  const nextFull = nextLanguage === "ru" ? copy.switcher.russianFull : copy.switcher.kazakhFull;
 
   return (
-    <div className="language-switcher" role="group" aria-label={copy.switcher.label} title={copy.switcher.label}>
-      <div className="language-switcher__icon" aria-hidden="true">
+    <button
+      type="button"
+      className="language-switcher"
+      onClick={() => setLanguage(nextLanguage)}
+      aria-label={`${copy.switcher.label}: ${nextFull}`}
+      title={nextFull}
+    >
+      <span className="language-switcher__icon" aria-hidden="true">
         <Languages size={15} />
-      </div>
-      <button
-        type="button"
-        className={`language-switcher__option ${language === "ru" ? "is-active" : ""}`}
-        onClick={() => setLanguage("ru")}
-        title={copy.switcher.russianFull}
-        aria-pressed={language === "ru"}
-      >
-        <span className="language-switcher__code">{copy.switcher.russianShort}</span>
-        <span className="language-switcher__label">{copy.switcher.russianFull}</span>
-      </button>
-      <button
-        type="button"
-        className={`language-switcher__option ${language === "kk" ? "is-active" : ""}`}
-        onClick={() => setLanguage("kk")}
-        title={copy.switcher.kazakhFull}
-        aria-pressed={language === "kk"}
-      >
-        <span className="language-switcher__code">{copy.switcher.kazakhShort}</span>
-        <span className="language-switcher__label">{copy.switcher.kazakhFull}</span>
-      </button>
-    </div>
+      </span>
+      <span className="language-switcher__code">{currentShort}</span>
+    </button>
   );
 }

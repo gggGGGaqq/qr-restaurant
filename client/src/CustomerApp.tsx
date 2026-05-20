@@ -307,6 +307,7 @@ export function CustomerApp() {
   const [reconnecting, setReconnecting] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const ordersSectionRef = useRef<HTMLElement | null>(null);
   const hasTableContext = isCustomerRouteOpen(customerRoute);
 
   const screenCopy = useMemo(
@@ -741,6 +742,10 @@ export function CustomerApp() {
     setActiveCategory(id);
   }
 
+  function scrollToOrders() {
+    ordersSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   async function submitOrder() {
     if (!session || cartItems.length === 0 || placing) return;
 
@@ -765,6 +770,7 @@ export function CustomerApp() {
       setOrderNote("");
       setCartOpen(false);
       setLastActionText(screenCopy.orderSent);
+      window.setTimeout(scrollToOrders, 180);
     } catch (requestError) {
       setError(formatError(requestError));
     } finally {
@@ -1033,17 +1039,6 @@ export function CustomerApp() {
 
         {!loading && !error && (
           <>
-            <section className="menu-intro">
-              <div>
-                <p className="eyebrow">{screenCopy.todayInMenu}</p>
-                <h2>{screenCopy.intro}</h2>
-              </div>
-              <div className="intro-metrics" aria-label={screenCopy.todayInMenu}>
-                <span>{screenCopy.positions(menu.length)}</span>
-                <span>{screenCopy.serviceLabel(Math.round(settings.serviceRate * 100))}</span>
-              </div>
-            </section>
-
             <section className="service-actions" aria-label={screenCopy.serviceRequestsAria}>
               {serviceActions.map((action) => {
                 const Icon = action.icon;
@@ -1062,20 +1057,33 @@ export function CustomerApp() {
             </section>
 
             <div className="menu-toolbar">
-              <label className="search-box" htmlFor="menu-search">
-                <Search size={18} />
-                <input
-                  id="menu-search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder={screenCopy.searchPlaceholder}
-                />
-                {searchQuery && (
-                  <button type="button" onClick={() => setSearchQuery("")} aria-label={screenCopy.clearSearch} title={screenCopy.clearSearch}>
-                    <X size={16} />
-                  </button>
-                )}
-              </label>
+              <div className="menu-toolbar__row">
+                <label className="search-box" htmlFor="menu-search">
+                  <Search size={18} />
+                  <input
+                    id="menu-search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder={screenCopy.searchPlaceholder}
+                  />
+                  {searchQuery && (
+                    <button type="button" onClick={() => setSearchQuery("")} aria-label={screenCopy.clearSearch} title={screenCopy.clearSearch}>
+                      <X size={16} />
+                    </button>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  className="orders-shortcut"
+                  onClick={scrollToOrders}
+                  aria-label={screenCopy.yourOrders}
+                  title={screenCopy.yourOrders}
+                >
+                  <ReceiptText size={18} />
+                  <span>{screenCopy.yourOrders}</span>
+                  <strong>{orders.length}</strong>
+                </button>
+              </div>
             </div>
 
             <nav className="category-nav" aria-label={screenCopy.categoriesAria}>
@@ -1146,7 +1154,7 @@ export function CustomerApp() {
               </div>
             )}
 
-            <section className="orders-section">
+            <section className="orders-section" ref={ordersSectionRef}>
               <div className="section-title-row">
                 <h2>{screenCopy.yourOrders}</h2>
                 <span>{orders.length}</span>
