@@ -88,12 +88,10 @@ type CartItemView = CartLine & {
   lineTotal: number;
 };
 
-interface FlyToCartAnimation {
+interface AddFeedbackAnimation {
   id: number;
-  imageSrc: string;
-  name: string;
-  from: { x: number; y: number; size: number };
-  to: { x: number; y: number; size: number };
+  x: number;
+  y: number;
 }
 
 type CustomerRoute =
@@ -115,14 +113,14 @@ const menuImageByItemId: Record<number, string> = {
   4: "/menu/burrata-salad.jpg",
   5: "/menu/chocolate-tart.jpg",
   6: "/menu/citrus-sparkling.jpg",
-  7: "/menu/dumplings-broth.svg",
-  8: "/menu/tomato-basil-pasta.svg",
-  9: "/menu/grilled-salmon-vegetables.svg",
-  10: "/menu/chicken-caesar.svg",
-  11: "/menu/quinoa-avocado-salad.svg",
-  12: "/menu/berry-cheesecake.svg",
-  13: "/menu/sea-buckthorn-mors.svg",
-  14: "/menu/vanilla-iced-latte.svg",
+  7: "/menu/dumplings-broth.jpg",
+  8: "/menu/tomato-basil-pasta.jpg",
+  9: "/menu/grilled-salmon-vegetables.jpg",
+  10: "/menu/chicken-caesar.jpg",
+  11: "/menu/quinoa-avocado-salad.jpg",
+  12: "/menu/berry-cheesecake.jpg",
+  13: "/menu/sea-buckthorn-mors.jpg",
+  14: "/menu/vanilla-iced-latte.jpg",
 };
 
 function escapeXml(value: string): string {
@@ -322,7 +320,8 @@ export function CustomerApp() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
-  const [flyToCart, setFlyToCart] = useState<FlyToCartAnimation | null>(null);
+  const [addFeedback, setAddFeedback] = useState<AddFeedbackAnimation | null>(null);
+  const [cartPulseKey, setCartPulseKey] = useState(0);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const ordersSectionRef = useRef<HTMLElement | null>(null);
   const hasTableContext = isCustomerRouteOpen(customerRoute);
@@ -745,36 +744,14 @@ export function CustomerApp() {
     });
   }
 
-  function startFlyToCart(menuItemId: number, trigger: HTMLElement) {
+  function startAddFeedback(trigger: HTMLElement) {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    const item = menuById.get(menuItemId);
-    const cardImage = trigger
-      .closest(".menu-card")
-      ?.querySelector(".menu-card__image-wrap img");
-    const sourceRect = (cardImage ?? trigger).getBoundingClientRect();
-    const cartRect = document.querySelector(".cart-fab")?.getBoundingClientRect();
-    const size = Math.min(74, Math.max(46, Math.min(sourceRect.width, sourceRect.height) * 0.42));
-    const targetSize = 30;
-    const fallbackTarget = {
-      x: window.innerWidth / 2 - targetSize / 2,
-      y: window.innerHeight - Math.max(76, targetSize + 26),
-    };
-
-    setFlyToCart({
+    const rect = trigger.getBoundingClientRect();
+    setAddFeedback({
       id: Date.now(),
-      imageSrc: resolvedImageById[menuItemId] ?? item?.defaultImage ?? createFoodPlaceholder(item?.name ?? "Dish"),
-      name: item?.name ?? "",
-      from: {
-        x: sourceRect.left + sourceRect.width / 2 - size / 2,
-        y: sourceRect.top + sourceRect.height / 2 - size / 2,
-        size,
-      },
-      to: {
-        x: cartRect ? cartRect.left + cartRect.width / 2 - targetSize / 2 : fallbackTarget.x,
-        y: cartRect ? cartRect.top + cartRect.height / 2 - targetSize / 2 : fallbackTarget.y,
-        size: targetSize,
-      },
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
     });
   }
 
@@ -782,7 +759,8 @@ export function CustomerApp() {
     const modifierIds = selectedModifiers[menuItemId] ?? [];
     const key = cartKey(menuItemId, modifierIds, "");
 
-    startFlyToCart(menuItemId, trigger);
+    startAddFeedback(trigger);
+    setCartPulseKey((current) => current + 1);
     setCart((current) => {
       const existing = current.find((line) => cartKey(line.menuItemId, line.modifierIds, line.note) === key);
       if (existing) {
@@ -931,9 +909,13 @@ export function CustomerApp() {
             key="cart-fab"
             className="cart-fab"
             initial={{ opacity: 0, scale: 0.94, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
+            animate={{
+              opacity: 1,
+              scale: cartPulseKey > 0 ? [1, 1.045, 1] : 1,
+              y: cartPulseKey > 0 ? [0, -2, 0] : 0,
+            }}
             exit={{ opacity: 0, scale: 0.94, y: 8 }}
-            transition={{ type: "tween", duration: 0.08, ease: "easeOut" }}
+            transition={{ duration: cartPulseKey > 0 ? 0.28 : 0.08, ease: "easeOut" }}
             whileTap={{ scale: 0.96, transition: { type: "tween", duration: 0.08 } }}
             onClick={() => setCartOpen(true)}
             aria-label={screenCopy.openCart}
@@ -951,36 +933,31 @@ export function CustomerApp() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {flyToCart && (
+        {addFeedback && (
           <motion.div
-            key={flyToCart.id}
-            className="add-to-cart-flight"
-            style={{
-              width: flyToCart.from.size,
-              height: flyToCart.from.size,
-              backgroundImage: `url("${flyToCart.imageSrc}")`,
-            }}
+            key={addFeedback.id}
+            className="add-feedback-bubble"
             initial={{
-              x: flyToCart.from.x,
-              y: flyToCart.from.y,
-              scale: 1,
-              opacity: 0.96,
-              rotate: -4,
+              x: addFeedback.x - 20,
+              y: addFeedback.y - 20,
+              opacity: 0,
+              scale: 0.72,
             }}
             animate={{
-              x: flyToCart.to.x,
-              y: flyToCart.to.y,
-              scale: flyToCart.to.size / flyToCart.from.size,
-              opacity: 0,
-              rotate: 8,
+              x: addFeedback.x - 20,
+              y: addFeedback.y - 58,
+              scale: [0.72, 1.08, 1],
+              opacity: [0, 1, 0],
             }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.68, ease: [0.22, 0.8, 0.2, 1] }}
+            transition={{ duration: 0.62, ease: [0.22, 0.8, 0.2, 1], times: [0, 0.25, 1] }}
             onAnimationComplete={() => {
-              setFlyToCart((current) => (current?.id === flyToCart.id ? null : current));
+              setAddFeedback((current) => (current?.id === addFeedback.id ? null : current));
             }}
             aria-hidden="true"
-          />
+          >
+            +1
+          </motion.div>
         )}
       </AnimatePresence>
 
