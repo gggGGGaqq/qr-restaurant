@@ -44,6 +44,8 @@ import {
   publishSettingsUpdated,
 } from "./realtime";
 
+const ORDER_HISTORY_WINDOW_HOURS = 24;
+
 const uuidParamSchema = z.string().uuid();
 const idParamSchema = z.coerce.number().int().positive();
 
@@ -431,7 +433,10 @@ export function createApp() {
     waiterOnly,
     asyncHandler(async (_req, res) => {
       res.json({
-        data: await listOrdersByStatus(["COMPLETED", "REJECTED"]),
+        data: await listOrdersByStatus(["COMPLETED", "REJECTED"], {
+          createdWithinHours: ORDER_HISTORY_WINDOW_HOURS,
+          sortDirection: "DESC",
+        }),
       });
     }),
   );
@@ -456,7 +461,12 @@ export function createApp() {
     "/api/kitchen/orders/history",
     kitchenOnly,
     asyncHandler(async (_req, res) => {
-      res.json({ data: await listOrdersByStatus(["READY", "COMPLETED"]) });
+      res.json({
+        data: await listOrdersByStatus(["READY", "COMPLETED"], {
+          createdWithinHours: ORDER_HISTORY_WINDOW_HOURS,
+          sortDirection: "DESC",
+        }),
+      });
     }),
   );
 

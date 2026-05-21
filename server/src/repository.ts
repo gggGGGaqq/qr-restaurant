@@ -636,17 +636,38 @@ export async function getOrderById(orderId: string): Promise<OrderDto | null> {
   return hydrateOrder(rows[0]);
 }
 
-export async function listOrdersByStatus(statuses: OrderStatus[]): Promise<OrderDto[]> {
+interface ListOrdersByStatusOptions {
+  createdWithinHours?: number;
+  sortDirection?: "ASC" | "DESC";
+}
+
+export async function listOrdersByStatus(
+  statuses: OrderStatus[],
+  options: ListOrdersByStatusOptions = {},
+): Promise<OrderDto[]> {
   if (statuses.length === 0) return [];
 
   const placeholders = statuses.map(() => "?").join(", ");
+  const filters = [`o.status IN (${placeholders})`];
+  const params: Array<OrderStatus | number> = [...statuses];
+  const sortDirection = options.sortDirection === "DESC" ? "DESC" : "ASC";
+
+  if (options.createdWithinHours !== undefined) {
+    const rawCreatedWithinHours = Number(options.createdWithinHours);
+    const createdWithinHours = Number.isFinite(rawCreatedWithinHours)
+      ? Math.max(1, Math.floor(rawCreatedWithinHours))
+      : 1;
+    filters.push("o.created_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)");
+    params.push(createdWithinHours);
+  }
+
   const [rows] = await pool.execute<OrderRow[]>(
     `SELECT o.id, o.table_id, t.number AS table_number, o.session_id, o.status, o.note, o.created_at, o.updated_at
      FROM orders o
      JOIN ` + "`tables`" + ` t ON t.id = o.table_id
-     WHERE o.status IN (${placeholders})
-     ORDER BY o.created_at ASC`,
-    statuses,
+     WHERE ${filters.join(" AND ")}
+     ORDER BY o.created_at ${sortDirection}, o.id ${sortDirection}`,
+    params,
   );
 
   return Promise.all(rows.map((row) => hydrateOrder(row)));
