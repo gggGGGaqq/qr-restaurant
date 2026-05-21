@@ -9,6 +9,7 @@ interface DashboardShellProps {
   icon: "waiter" | "kitchen" | "admin";
   metaLabel?: string;
   notice?: string | null;
+  animateNotice?: boolean;
   className?: string;
   children: ReactNode;
 }
@@ -19,6 +20,7 @@ export function DashboardShell({
   icon,
   metaLabel,
   notice,
+  animateNotice = true,
   className,
   children,
 }: DashboardShellProps) {
@@ -40,22 +42,31 @@ export function DashboardShell({
         </div>
       </header>
 
-      <AnimatePresence mode="popLayout">
-        {notice && (
-          <motion.div
-            key={notice}
-            className="notice"
-            role="status"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.24, ease: "easeOut" }}
-          >
+      {animateNotice ? (
+        <AnimatePresence mode="popLayout">
+          {notice && (
+            <motion.div
+              key={notice}
+              className="notice"
+              role="status"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.24, ease: "easeOut" }}
+            >
+              <Bell size={18} />
+              <span>{notice}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        notice ? (
+          <div className="notice" role="status">
             <Bell size={18} />
             <span>{notice}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        ) : null
+      )}
 
       {children}
     </main>

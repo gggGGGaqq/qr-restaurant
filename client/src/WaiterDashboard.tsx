@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   BellRing,
@@ -367,10 +366,9 @@ export function WaiterDashboard() {
   return (
     <DashboardShell
       title={screenCopy.title}
-      subtitle={screenCopy.subtitle}
       icon="waiter"
-      metaLabel={copy.common.today}
       notice={notice}
+      animateNotice={false}
     >
       {(!isOnline || (!socketConnected && reconnecting)) && (
         <p className="warning-banner">
@@ -408,31 +406,25 @@ export function WaiterDashboard() {
           <p className="empty-state">{screenCopy.noRequests}</p>
         ) : (
           <div className="service-request-grid">
-            <AnimatePresence initial={false}>
-              {serviceRequests.map((request) => {
-                const Icon = serviceIcons[request.type];
-                return (
-                  <motion.article
-                    key={request.id}
-                    layout
-                    className={`service-request-card ${serviceBusyId === request.id ? "is-busy" : ""}`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                  >
-                    <Icon size={20} />
-                    <div>
-                      <p className="eyebrow">{copy.common.table(request.tableNumber)}</p>
-                      <h3>{copy.serviceRequestLong[request.type]}</h3>
-                      {request.note && <p>{request.note}</p>}
-                    </div>
-                    <button className="button button-primary" type="button" onClick={() => void finishServiceRequest(request)}>
-                      {screenCopy.done}
-                    </button>
-                  </motion.article>
-                );
-              })}
-            </AnimatePresence>
+            {serviceRequests.map((request) => {
+              const Icon = serviceIcons[request.type];
+              return (
+                <article
+                  key={request.id}
+                  className={`service-request-card ${serviceBusyId === request.id ? "is-busy" : ""}`}
+                >
+                  <Icon size={20} />
+                  <div>
+                    <p className="eyebrow">{copy.common.table(request.tableNumber)}</p>
+                    <h3>{copy.serviceRequestLong[request.type]}</h3>
+                    {request.note && <p>{request.note}</p>}
+                  </div>
+                  <button className="button button-primary" type="button" onClick={() => void finishServiceRequest(request)}>
+                    {screenCopy.done}
+                  </button>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
@@ -512,20 +504,18 @@ export function WaiterDashboard() {
               <p className="empty-state">{screenCopy.noNew}</p>
             ) : (
               <div className="order-stack">
-                <AnimatePresence initial={false}>
-                  {grouped.incoming.map((order) => (
-                    <motion.div className={busyId === order.id ? "is-busy" : ""} key={order.id} layout>
-                      <OrderCard
-                        order={order}
-                        variant="waiter"
-                        showTimer
-                        nowTimestamp={nowTimestamp}
-                        onAccept={(next) => void runAction(next, "accept")}
-                        onReject={(next) => void runAction(next, "reject")}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                {grouped.incoming.map((order) => (
+                  <div className={busyId === order.id ? "is-busy" : ""} key={order.id}>
+                    <OrderCard
+                      order={order}
+                      variant="waiter"
+                      showTimer
+                      nowTimestamp={nowTimestamp}
+                      onAccept={(next) => void runAction(next, "accept")}
+                      onReject={(next) => void runAction(next, "reject")}
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -539,13 +529,11 @@ export function WaiterDashboard() {
               <p className="empty-state">{screenCopy.noActive}</p>
             ) : (
               <div className="order-stack">
-                <AnimatePresence initial={false}>
-                  {grouped.active.map((order) => (
-                    <motion.div className={busyId === order.id ? "is-busy" : ""} key={order.id} layout>
-                      <OrderCard order={order} variant="waiter" showTimer nowTimestamp={nowTimestamp} />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                {grouped.active.map((order) => (
+                  <div className={busyId === order.id ? "is-busy" : ""} key={order.id}>
+                    <OrderCard order={order} variant="waiter" showTimer nowTimestamp={nowTimestamp} />
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -559,19 +547,17 @@ export function WaiterDashboard() {
               <p className="empty-state">{screenCopy.noReady}</p>
             ) : (
               <div className="order-stack">
-                <AnimatePresence initial={false}>
-                  {grouped.ready.map((order) => (
-                    <motion.div className={busyId === order.id ? "is-busy" : ""} key={order.id} layout>
-                      <OrderCard
-                        order={order}
-                        variant="waiter"
-                        showTimer
-                        nowTimestamp={nowTimestamp}
-                        onComplete={(next) => void runAction(next, "complete")}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                {grouped.ready.map((order) => (
+                  <div className={busyId === order.id ? "is-busy" : ""} key={order.id}>
+                    <OrderCard
+                      order={order}
+                      variant="waiter"
+                      showTimer
+                      nowTimestamp={nowTimestamp}
+                      onComplete={(next) => void runAction(next, "complete")}
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>
