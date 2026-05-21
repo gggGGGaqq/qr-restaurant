@@ -15,7 +15,7 @@ import type { Order } from "./types";
 const kitchenStatuses = ["ACCEPTED", "COOKING"] as const;
 
 export function KitchenDashboard() {
-  const nowTimestamp = useTick(15000);
+  const nowTimestamp = useTick(1000);
   const isOnline = useNetworkStatus();
   const { orders, replaceAll, upsertIfStatus } = useOrders();
   const { language, copy } = useLanguage();
