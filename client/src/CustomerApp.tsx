@@ -36,6 +36,7 @@ import {
   localizeModifierName,
 } from "./contentTranslations";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
+import { useTick } from "./hooks/useTick";
 import { useLanguage } from "./i18n";
 import { menuCategories } from "./menu";
 import { createOrderSocket } from "./socket";
@@ -48,6 +49,9 @@ import type {
   TableSession,
 } from "./types";
 import { formatMoney } from "./utils/format";
+
+const ORDER_COOLDOWN_MS = 5 * 60 * 1000;
+const nonBillableOrderStatuses = new Set<string>(["REJECTED", "CANCELLED", "CANCELED"]);
 
 interface CategoryMeta {
   id: MenuCategory;
@@ -90,6 +94,32 @@ interface AddFeedbackAnimation {
   id: number;
   x: number;
   y: number;
+}
+
+function isBillableOrder(order: Pick<Order, "status">): boolean {
+  return !nonBillableOrderStatuses.has(order.status);
+}
+
+function getBillableOrderTotal(order: Order): number {
+  return isBillableOrder(order) ? order.total : 0;
+}
+
+function formatCooldownTime(totalSeconds: number): string {
+  const seconds = Math.max(1, Math.ceil(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const restSeconds = seconds % 60;
+
+  if (minutes > 0 && restSeconds > 0) return `${minutes} мин ${restSeconds} сек`;
+  if (minutes > 0) return `${minutes} мин`;
+  return `${restSeconds} сек`;
+}
+
+function getRetryAfterSeconds(errorValue: ApiError): number | null {
+  const details = errorValue.details;
+  if (!details || typeof details !== "object" || !("retryAfterSeconds" in details)) return null;
+
+  const retryAfterSeconds = Number((details as { retryAfterSeconds?: unknown }).retryAfterSeconds);
+  return Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? retryAfterSeconds : null;
 }
 
 type CustomerRoute =
@@ -299,6 +329,7 @@ const CustomerMenuCard = memo(
 
 export function CustomerApp() {
   const isOnline = useNetworkStatus();
+  const nowTimestamp = useTick(1000);
   const { language, copy } = useLanguage();
   const [settings, setSettings] = useState<RestaurantSettings>(defaultSettings);
   const [entryTableToken, setEntryTableToken] = useState("");
@@ -362,6 +393,7 @@ export function CustomerApp() {
             submitOrder: "Тапсырысты рәсімдеу",
             sending: "Жіберілуде...",
             orderSent: "Тапсырыс даяшыға жіберілді",
+            orderCooldown: (timeLabel: string) => `Келесі тапсырысты ${timeLabel} кейін жіберуге болады.`,
             requestSent: (label: string) => `Сұрау жіберілді: ${label}`,
             retry: copy.common.retry,
           }
@@ -398,6 +430,7 @@ export function CustomerApp() {
             submitOrder: "Оформить заказ",
             sending: "Отправка...",
             orderSent: "Заказ отправлен официанту",
+            orderCooldown: (timeLabel: string) => `Следующий заказ можно отправить через ${timeLabel}.`,
             requestSent: (label: string) => `Запрос отправлен: ${label}`,
             retry: copy.common.retry,
           },
@@ -534,18 +567,38 @@ export function CustomerApp() {
   );
   const cartTotal = cartSubtotal;
   const ordersSubtotal = useMemo(
-    () => orders.reduce((sum, order) => sum + order.total, 0),
+    () => orders.reduce((sum, order) => sum + getBillableOrderTotal(order), 0),
     [orders],
   );
   const ordersServiceFee = ordersSubtotal * settings.serviceRate;
   const ordersTotal = ordersSubtotal + ordersServiceFee;
+  const lastOrderCreatedAt = useMemo(
+    () =>
+      orders.reduce((latest, order) => {
+        const createdAt = Date.parse(order.createdAt);
+        return Number.isFinite(createdAt) ? Math.max(latest, createdAt) : latest;
+      }, 0),
+    [orders],
+  );
+  const orderCooldownRemainingSeconds =
+    lastOrderCreatedAt > 0
+      ? Math.max(0, Math.ceil((lastOrderCreatedAt + ORDER_COOLDOWN_MS - nowTimestamp) / 1000))
+      : 0;
+  const orderCooldownActive = orderCooldownRemainingSeconds > 0;
+  const orderCooldownMessage = orderCooldownActive
+    ? screenCopy.orderCooldown(formatCooldownTime(orderCooldownRemainingSeconds))
+    : null;
   const cartCount = useMemo(
     () => cart.reduce((sum, line) => sum + line.qty, 0),
     [cart],
   );
 
   function formatError(errorValue: unknown): string {
-    if (errorValue instanceof ApiError) return errorValue.message;
+    if (errorValue instanceof ApiError) {
+      const retryAfterSeconds = errorValue.status === 429 ? getRetryAfterSeconds(errorValue) : null;
+      if (retryAfterSeconds) return screenCopy.orderCooldown(formatCooldownTime(retryAfterSeconds));
+      return errorValue.message;
+    }
     return copy.api.genericActionFailed;
   }
 
@@ -788,6 +841,10 @@ export function CustomerApp() {
 
   async function submitOrder() {
     if (!session || cartItems.length === 0 || placing) return;
+    if (orderCooldownActive && orderCooldownMessage) {
+      setError(orderCooldownMessage);
+      return;
+    }
 
     setPlacing(true);
     setError(null);
@@ -1028,10 +1085,15 @@ export function CustomerApp() {
                   <span>{copy.common.totalDue}</span>
                   <strong>{formatMoney(cartTotal, language)}</strong>
                 </div>
+                {orderCooldownMessage && (
+                  <p className="cart-sheet__notice" role="status">
+                    {orderCooldownMessage}
+                  </p>
+                )}
                 <button
                   className="button button-primary button-wide"
                   onClick={submitOrder}
-                  disabled={placing || !isOnline}
+                  disabled={placing || !isOnline || orderCooldownActive}
                 >
                   {placing ? screenCopy.sending : screenCopy.submitOrder}
                 </button>
@@ -1082,11 +1144,14 @@ export function CustomerApp() {
                   </div>
                 ) : (
                   orders.map((order) => (
-                    <section className="orders-sheet__batch" key={order.id}>
+                    <section
+                      className={`orders-sheet__batch ${isBillableOrder(order) ? "" : "is-non-billable"}`}
+                      key={order.id}
+                    >
                       <div className="orders-sheet__batch-header">
                         <div>
                           <p className="eyebrow">{copy.common.order(order.id.slice(0, 8))}</p>
-                          <strong>{formatMoney(order.total, language)}</strong>
+                          <strong>{formatMoney(getBillableOrderTotal(order), language)}</strong>
                         </div>
                         <span className={`status status-${order.status.toLowerCase()}`}>
                           {copy.orderStatuses[order.status]}

@@ -1281,6 +1281,17 @@ h3 {
   font-size: 1.04rem;
 }
 
+.cart-sheet__notice {
+  margin: 0;
+  border: 1px solid rgba(184, 111, 50, 0.24);
+  border-radius: 14px;
+  background: rgba(184, 111, 50, 0.08);
+  color: var(--text-muted);
+  padding: 9px 10px;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
 .cart-sheet--orders {
   max-height: min(90dvh, 820px);
 }
@@ -1319,6 +1330,15 @@ h3 {
   margin-top: 3px;
   color: var(--primary-dark);
   font-size: 1rem;
+}
+
+.orders-sheet__batch.is-non-billable .orders-sheet__batch-header strong {
+  color: var(--text-muted);
+}
+
+.orders-sheet__batch.is-non-billable .orders-sheet__line strong {
+  color: var(--text-muted);
+  text-decoration: line-through;
 }
 
 .orders-sheet__lines {

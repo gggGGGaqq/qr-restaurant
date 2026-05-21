@@ -24,6 +24,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly details?: unknown,
   ) {
     super(message);
   }
@@ -142,7 +143,7 @@ async function request<T>(
   }
 
   const body = (await response.json().catch(() => null)) as
-    | { data?: T; meta?: Record<string, unknown>; error?: { message?: string } }
+    | { data?: T; meta?: Record<string, unknown>; error?: { message?: string; details?: unknown } }
     | null;
 
   if (!response.ok) {
@@ -153,6 +154,7 @@ async function request<T>(
     throw new ApiError(
       body?.error?.message ?? fallbackMessageByStatus(response.status),
       response.status,
+      body?.error?.details,
     );
   }
 

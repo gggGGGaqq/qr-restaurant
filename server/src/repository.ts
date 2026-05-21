@@ -23,6 +23,7 @@ import type {
 } from "./types";
 
 type Db = Pool | PoolConnection;
+const ORDER_CREATE_COOLDOWN_SECONDS = 5 * 60;
 
 interface TableRow extends RowDataPacket {
   id: number;
@@ -75,6 +76,11 @@ interface OrderRow extends RowDataPacket {
   updated_at: Date;
 }
 
+interface RecentOrderCooldownRow extends RowDataPacket {
+  id: string;
+  seconds_since_created: number;
+}
+
 interface OrderItemRow extends RowDataPacket {
   id: number;
   menu_item_id: number;
@@ -112,6 +118,20 @@ interface PopularItemRow extends RowDataPacket {
 
 function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function formatOrderCooldownMessage(retryAfterSeconds: number): string {
+  const seconds = Math.max(1, Math.ceil(retryAfterSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const restSeconds = seconds % 60;
+  const timeLabel =
+    minutes > 0 && restSeconds > 0
+      ? `${minutes} мин ${restSeconds} сек`
+      : minutes > 0
+        ? `${minutes} мин`
+        : `${restSeconds} сек`;
+
+  return `Следующий заказ можно отправить через ${timeLabel}.`;
 }
 
 function mapTable(row: TableRow): TableDto {
@@ -640,6 +660,8 @@ export async function createOrder(
     return { order: existing, created: false };
   }
 
+  let idempotentOrderId: string | null = null;
+
   try {
     await withTransaction(async (connection) => {
       await expireInactiveSessions(connection);
@@ -659,6 +681,45 @@ export async function createOrder(
       }
       if (session.table_id !== input.tableId) {
         throw new HttpError(400, "Сессия не принадлежит этому столу");
+      }
+
+      await connection.execute<TableRow[]>(
+        "SELECT id, number FROM `tables` WHERE id = ? FOR UPDATE",
+        [session.table_id],
+      );
+
+      const [duplicateOrders] = await connection.execute<OrderRow[]>(
+        `SELECT o.id, o.table_id, t.number AS table_number, o.session_id, o.status, o.note, o.created_at, o.updated_at
+         FROM orders o
+         JOIN ` + "`tables`" + ` t ON t.id = o.table_id
+         WHERE o.id = ?
+         FOR UPDATE`,
+        [input.orderId],
+      );
+
+      if (duplicateOrders[0]) {
+        idempotentOrderId = duplicateOrders[0].id;
+        return;
+      }
+
+      const [recentOrders] = await connection.execute<RecentOrderCooldownRow[]>(
+        `SELECT id, TIMESTAMPDIFF(SECOND, created_at, NOW()) AS seconds_since_created
+         FROM orders
+         WHERE table_id = ?
+         ORDER BY created_at DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [session.table_id],
+      );
+      const secondsSinceLastOrder = Number(recentOrders[0]?.seconds_since_created ?? ORDER_CREATE_COOLDOWN_SECONDS);
+
+      if (secondsSinceLastOrder < ORDER_CREATE_COOLDOWN_SECONDS) {
+        const retryAfterSeconds = ORDER_CREATE_COOLDOWN_SECONDS - Math.max(0, secondsSinceLastOrder);
+        throw new HttpError(
+          429,
+          formatOrderCooldownMessage(retryAfterSeconds),
+          { retryAfterSeconds },
+        );
       }
 
       const menuIds = [...new Set(input.items.map((item) => item.menuItemId))];
@@ -746,6 +807,13 @@ export async function createOrder(
       if (order) return { order, created: false };
     }
     throw error;
+  }
+
+  if (idempotentOrderId) {
+    return {
+      order: assertFound(await getOrderById(idempotentOrderId), "Заказ не найден после идемпотентного повтора"),
+      created: false,
+    };
   }
 
   return {
