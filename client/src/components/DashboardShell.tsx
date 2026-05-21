@@ -5,7 +5,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 
 interface DashboardShellProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: "waiter" | "kitchen" | "admin";
   metaLabel?: string;
   notice?: string | null;
@@ -28,7 +28,7 @@ export function DashboardShell({
     <main className={`app-shell dashboard-shell ${className ?? ""}`.trim()}>
       <header className="dashboard-header">
         <div className="dashboard-header__copy">
-          <p className="eyebrow">{subtitle}</p>
+          {subtitle && <p className="eyebrow">{subtitle}</p>}
           <h1>{title}</h1>
         </div>
         <div className="dashboard-header__meta">

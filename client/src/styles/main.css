@@ -1789,8 +1789,7 @@ h3 {
   font-size: 1.2rem;
 }
 
-.admin-insight-list p,
-.admin-helper-text {
+.admin-insight-list p {
   color: var(--text-muted);
   font-size: 0.88rem;
   line-height: 1.45;
@@ -2091,69 +2090,11 @@ h3 {
   gap: 18px;
 }
 
-.admin-hero {
-  border: 1px solid rgba(36, 89, 75, 0.12);
-  border-radius: 26px;
-  padding: 20px;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(47, 111, 94, 0.14), transparent 32%),
-    radial-gradient(circle at 100% 10%, rgba(184, 111, 50, 0.12), transparent 28%),
-    linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(242, 247, 244, 0.92));
-  box-shadow: 0 22px 48px rgba(23, 33, 28, 0.08);
-  display: grid;
-  gap: 18px;
-}
-
-.admin-hero__pill {
-  color: var(--primary-dark);
-  background: rgba(224, 237, 232, 0.9);
-}
-
-.admin-hero__content {
-  display: grid;
-  gap: 12px;
-}
-
-.admin-hero__content p:not(.eyebrow) {
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  line-height: 1.55;
-  max-width: 62ch;
-}
-
-.admin-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.admin-hero__stats {
-  display: grid;
-  gap: 10px;
-}
-
-.admin-hero__stats div,
-.admin-empty-note {
-  border: 1px solid rgba(36, 89, 75, 0.1);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 14px;
-  box-shadow: var(--shadow-soft);
-}
-
-.admin-hero__stats strong,
 .admin-insight-list strong {
   display: block;
   color: var(--primary-dark);
   font-size: 1.45rem;
   line-height: 1;
-}
-
-.admin-hero__stats span,
-.admin-empty-note {
-  color: var(--text-muted);
-  font-size: 0.86rem;
-  line-height: 1.45;
 }
 
 .admin-tabbar {
@@ -2451,8 +2392,46 @@ h3 {
   min-height: 220px;
 }
 
-.admin-empty-note {
-  margin-top: 6px;
+.admin-shell .dashboard-header {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.admin-command-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-command-bar .button {
+  min-height: 40px;
+}
+
+.admin-panel,
+.admin-creation-card,
+.admin-item-card,
+.admin-table-card,
+.admin-brand-preview,
+.admin-summary-card,
+.admin-upload,
+.admin-upload__preview,
+.admin-card-note,
+.admin-modifier-card,
+.admin-draft-modifier {
+  border-radius: var(--radius);
+}
+
+.admin-tabbar {
+  border-radius: var(--radius);
+}
+
+.admin-tab {
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.admin-section-stack > .admin-creation-grid {
+  grid-template-columns: 1fr;
 }
 
 /* Клиентское меню: телефоны и узкие экраны */
@@ -2672,19 +2651,9 @@ h3 {
     border-radius: 18px;
   }
 
-  .admin-hero {
-    padding: 16px;
-    border-radius: 20px;
-  }
-
-  .admin-hero__actions,
   .admin-upload__actions {
     display: grid;
     grid-template-columns: 1fr;
-  }
-
-  .admin-hero__stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .admin-overview-grid,
@@ -2731,10 +2700,6 @@ h3 {
   }
 
   .owner-metrics {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-hero__stats {
     grid-template-columns: 1fr;
   }
 
@@ -2847,16 +2812,6 @@ h3 {
 
   .admin-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .admin-hero {
-    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-    align-items: stretch;
-  }
-
-  .admin-hero__stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-content: start;
   }
 
   .admin-toolbar,

@@ -15,7 +15,6 @@ import {
   Save,
   Search,
   Settings2,
-  Sparkles,
   Store,
   Trash2,
   Upload,
@@ -57,34 +56,23 @@ interface DraftModifier {
 
 interface AdminScreenCopy {
   title: string;
-  subtitle: string;
-  heroBadge: string;
-  heroTitle: string;
-  heroText: string;
   overview: string;
   menu: string;
   tables: string;
   branding: string;
   menuCount: (count: number) => string;
   summaryMenu: string;
-  summaryMenuDetail: (count: number) => string;
   summaryStopList: string;
-  summaryStopListDetail: string;
   summaryModifiers: string;
-  summaryModifiersDetail: string;
   summaryTables: string;
-  summaryTablesDetail: string;
   refreshScreen: string;
   editMenu: string;
   manageTables: string;
   setupBrand: string;
-  focusTitle: string;
   focusPhotos: string;
   focusStopList: string;
   focusTables: string;
-  focusEmpty: string;
   menuBuilder: string;
-  itemCatalog: string;
   brandStudio: string;
   livePreview: string;
   newMenuItem: string;
@@ -135,7 +123,6 @@ interface AdminScreenCopy {
   surcharge: string;
   sortOrder: string;
   draftModifiers: string;
-  draftModifierHint: string;
   remove: string;
   availableNow: string;
   guestEntry: string;
@@ -148,7 +135,6 @@ interface AdminScreenCopy {
   serviceRate: string;
   coverImage: string;
   saveBrand: string;
-  previewHint: (percent: number) => string;
   genericError: string;
   copiedLink: string;
   savedSettings: string;
@@ -234,7 +220,7 @@ function MetricCard({
   icon: ReactNode;
   label: string;
   value: string;
-  detail: string;
+  detail?: string;
 }) {
   return (
     <motion.article
@@ -248,7 +234,7 @@ function MetricCard({
       <div className="admin-summary-card__copy">
         <span>{label}</span>
         <strong>{value}</strong>
-        <p>{detail}</p>
+        {detail && <p>{detail}</p>}
       </div>
     </motion.article>
   );
@@ -320,7 +306,6 @@ function ImageUploadField({
 
         <div className="admin-upload__content">
           <strong>{value ? readyLabel : hint}</strong>
-          <p>{hint}</p>
           <div className="admin-upload__actions">
             <label className="button button-secondary admin-upload__button" htmlFor={inputId}>
               <Upload size={16} />
@@ -951,7 +936,7 @@ export function AdminDashboard() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [creatingItem, setCreatingItem] = useState(false);
   const [creatingTable, setCreatingTable] = useState(false);
-  const [currentTab, setCurrentTab] = useState<AdminTab>("overview");
+  const [currentTab, setCurrentTab] = useState<AdminTab>("menu");
   const [menuStatusFilter, setMenuStatusFilter] = useState<MenuStatusFilter>("all");
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<MenuCategoryFilter>("all");
   const [menuSort, setMenuSort] = useState<MenuSort>("active-first");
@@ -967,34 +952,23 @@ export function AdminDashboard() {
       language === "kk"
         ? {
             title: "Әкімші панелі",
-            subtitle: "Мәзір, QR және брендті бір жерден басқарыңыз",
-            heroBadge: "Басқару орталығы",
-            heroTitle: "Залға керек нәрсенің бәрі бір экранда",
-            heroText: "Стоп-парақ, жаңа тағамдар, модификаторлар, үстелдер және бренд баптауы осы жерден тез жаңарады.",
             overview: "Шолу",
             menu: "Мәзір",
             tables: "Үстелдер",
             branding: "Бренд",
             menuCount: (count: number) => `${count} позиция`,
             summaryMenu: "Мәзір позициялары",
-            summaryMenuDetail: (count: number) => `${count} қонаққа қазір көрініп тұр`,
             summaryStopList: "Стоп-парақ",
-            summaryStopListDetail: "Уақытша жабылған тағамдар",
             summaryModifiers: "Модификаторлар",
-            summaryModifiersDetail: "Өлшемдер, қоспалар және үстемелер",
             summaryTables: "Үстелдер",
-            summaryTablesDetail: "QR кіруі бар үстелдер",
             refreshScreen: "Жаңарту",
             editMenu: "Мәзірді өңдеу",
             manageTables: "Үстелдерді ашу",
             setupBrand: "Брендті баптау",
-            focusTitle: "Қазір назар аударатын нәрсе",
             focusPhotos: "Фотосыз позициялар",
             focusStopList: "Стоп-парақтағы тағамдар",
             focusTables: "Жүйедегі үстелдер",
-            focusEmpty: "Мәзір түгел, фото және қолжетімділік жақсы күйде.",
             menuBuilder: "Жаңа тағам қосу",
-            itemCatalog: "Барлық мәзір",
             brandStudio: "Бренд баптауы",
             livePreview: "Тікелей алдын ала қарау",
             newMenuItem: "Жаңа мәзір позициясы",
@@ -1045,7 +1019,6 @@ export function AdminDashboard() {
             surcharge: "Үстеме, ₸",
             sortOrder: "Реті",
             draftModifiers: "Жаңа позиция модификаторлары",
-            draftModifierHint: "Позиция сақталғанда осы модификаторлар бірге жасалады.",
             remove: "Өшіру",
             availableNow: copy.common.available,
             guestEntry: "Қонаққа кіру",
@@ -1058,7 +1031,6 @@ export function AdminDashboard() {
             serviceRate: "Сервис, %",
             coverImage: "Мәзір мұқабасы",
             saveBrand: "Брендті сақтау",
-            previewHint: (percent: number) => `Қызмет ақысы ${percent}%. Бұл түс батырмалар мен QR аймағында көрінеді.`,
             genericError: "Әрекетті орындау мүмкін болмады.",
             copiedLink: "Сілтеме көшірілді.",
             savedSettings: "Баптаулар сақталды.",
@@ -1073,34 +1045,23 @@ export function AdminDashboard() {
           }
         : {
             title: "Админ-панель",
-            subtitle: "Управляйте меню, QR и брендом из одного места",
-            heroBadge: "Операционный центр",
-            heroTitle: "Вся админка собрана в одну понятную панель",
-            heroText: "Стоп-лист, новые блюда, модификаторы, столы и внешний вид меню теперь редактируются быстрее и чище.",
             overview: "Обзор",
             menu: "Меню",
             tables: "Столы",
             branding: "Бренд",
             menuCount: (count: number) => `${count} позиций`,
             summaryMenu: "Позиции меню",
-            summaryMenuDetail: (count: number) => `${count} сейчас видны гостям`,
             summaryStopList: "Стоп-лист",
-            summaryStopListDetail: "Временно недоступные блюда",
             summaryModifiers: "Модификаторы",
-            summaryModifiersDetail: "Размеры, добавки и доплаты",
             summaryTables: "Столы",
-            summaryTablesDetail: "Точки входа по QR",
             refreshScreen: "Обновить",
             editMenu: "Править меню",
             manageTables: "Открыть столы",
             setupBrand: "Настроить бренд",
-            focusTitle: "Что сейчас требует внимания",
             focusPhotos: "позиций без фото",
             focusStopList: "позиций в стоп-листе",
             focusTables: "столов в системе",
-            focusEmpty: "Сейчас всё выглядит аккуратно: фото есть, стоп-лист под контролем.",
             menuBuilder: "Добавление новых блюд",
-            itemCatalog: "Каталог меню",
             brandStudio: "Настройки бренда",
             livePreview: "Живой предпросмотр",
             newMenuItem: "Новая позиция",
@@ -1151,7 +1112,6 @@ export function AdminDashboard() {
             surcharge: "Доплата, ₸",
             sortOrder: "Порядок",
             draftModifiers: "Модификаторы для нового блюда",
-            draftModifierHint: "Они будут созданы сразу вместе с новым блюдом.",
             remove: "Удалить",
             availableNow: copy.common.available,
             guestEntry: "Вход для гостя",
@@ -1164,7 +1124,6 @@ export function AdminDashboard() {
             serviceRate: "Сервисный сбор, %",
             coverImage: "Обложка меню",
             saveBrand: "Сохранить бренд",
-            previewHint: (percent: number) => `Сервисный сбор ${percent}%. Этот цвет используется в ключевых кнопках и QR-зоне.`,
             genericError: "Не удалось выполнить действие.",
             copiedLink: "Ссылка скопирована.",
             savedSettings: "Настройки сохранены.",
@@ -1561,7 +1520,6 @@ export function AdminDashboard() {
     <DashboardShell
       className="admin-shell"
       title={screenCopy.title}
-      subtitle={screenCopy.subtitle}
       icon="admin"
       metaLabel={screenCopy.menuCount(menu.length)}
       notice={notice}
@@ -1583,81 +1541,46 @@ export function AdminDashboard() {
         </div>
       ) : (
         <div className="admin-workspace">
-          <motion.section
-            className="admin-hero"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28, ease: "easeOut" }}
-          >
-            <div className="admin-hero__content">
-              <span className="soft-pill admin-hero__pill">{screenCopy.heroBadge}</span>
-              <h2>{screenCopy.heroTitle}</h2>
-              <p>{screenCopy.heroText}</p>
-              <div className="admin-hero__actions">
-                <button className="button button-primary" type="button" onClick={() => setCurrentTab("menu")}>
-                  <UtensilsCrossed size={16} />
-                  {screenCopy.editMenu}
-                </button>
-                <button className="button button-secondary" type="button" onClick={() => setCurrentTab("tables")}>
-                  <QrCode size={16} />
-                  {screenCopy.manageTables}
-                </button>
-                <button className="button button-secondary" type="button" onClick={() => setCurrentTab("branding")}>
-                  <Palette size={16} />
-                  {screenCopy.setupBrand}
-                </button>
-                <button className="button button-secondary" type="button" onClick={() => void loadDashboard()}>
-                  <RefreshCw size={16} />
-                  {screenCopy.refreshScreen}
-                </button>
-              </div>
-            </div>
-
-            <div className="admin-hero__stats">
-              <div>
-                <strong>{menuMetrics.activeItems}</strong>
-                <span>{screenCopy.summaryMenu}</span>
-              </div>
-              <div>
-                <strong>{menuMetrics.inactiveItems}</strong>
-                <span>{screenCopy.summaryStopList}</span>
-              </div>
-              <div>
-                <strong>{menuMetrics.modifierCount}</strong>
-                <span>{screenCopy.summaryModifiers}</span>
-              </div>
-              <div>
-                <strong>{tables.length}</strong>
-                <span>{screenCopy.summaryTables}</span>
-              </div>
-            </div>
-          </motion.section>
-
           <section className="admin-summary-grid">
             <MetricCard
               icon={<Store size={18} />}
               label={screenCopy.summaryMenu}
               value={String(menu.length)}
-              detail={screenCopy.summaryMenuDetail(menuMetrics.activeItems)}
             />
             <MetricCard
               icon={<Power size={18} />}
               label={screenCopy.summaryStopList}
               value={String(menuMetrics.inactiveItems)}
-              detail={screenCopy.summaryStopListDetail}
             />
             <MetricCard
               icon={<Settings2 size={18} />}
               label={screenCopy.summaryModifiers}
               value={String(menuMetrics.modifierCount)}
-              detail={screenCopy.summaryModifiersDetail}
             />
             <MetricCard
               icon={<QrCode size={18} />}
               label={screenCopy.summaryTables}
               value={String(tables.length)}
-              detail={screenCopy.summaryTablesDetail}
             />
+          </section>
+
+          <section className="admin-command-bar">
+            <button className="button button-primary" type="button" onClick={() => setCurrentTab("menu")}>
+              <UtensilsCrossed size={16} />
+              {screenCopy.editMenu}
+            </button>
+            <button className="button button-secondary" type="button" onClick={() => setCurrentTab("tables")}>
+              <QrCode size={16} />
+              {screenCopy.manageTables}
+            </button>
+            <button className="button button-secondary" type="button" onClick={() => setCurrentTab("branding")}>
+              <Palette size={16} />
+              {screenCopy.setupBrand}
+            </button>
+            <button className="button button-secondary" type="button" onClick={() => void loadDashboard()}>
+              <RefreshCw size={16} />
+              {screenCopy.refreshScreen}
+            </button>
           </section>
 
           <section className="admin-tabbar" aria-label={screenCopy.title}>
@@ -1678,8 +1601,8 @@ export function AdminDashboard() {
             <div className="admin-overview-grid">
               <section className="admin-panel admin-panel--feature">
                 <div className="section-title-row">
-                  <h2>{screenCopy.focusTitle}</h2>
-                  <Sparkles size={18} />
+                  <h2>{screenCopy.overview}</h2>
+                  <span>{menu.length}</span>
                 </div>
 
                 <div className="admin-insight-list">
@@ -1696,10 +1619,6 @@ export function AdminDashboard() {
                     <p>{screenCopy.focusTables}</p>
                   </div>
                 </div>
-
-                {menuMetrics.itemsWithoutImage === 0 && menuMetrics.inactiveItems === 0 && (
-                  <div className="admin-empty-note">{screenCopy.focusEmpty}</div>
-                )}
               </section>
 
               <section className="admin-panel admin-panel--feature">
@@ -1804,7 +1723,6 @@ export function AdminDashboard() {
                       <h3>{screenCopy.draftModifiers}</h3>
                       <span>{newItemModifiers.length}</span>
                     </div>
-                    <p className="admin-helper-text">{screenCopy.draftModifierHint}</p>
 
                     <div className="admin-inline-form admin-inline-form--modifier-draft">
                       <label className="admin-field">
@@ -1917,30 +1835,6 @@ export function AdminDashboard() {
                   </button>
                 </form>
 
-                <section className="admin-panel admin-panel--feature">
-                  <div className="section-title-row">
-                    <div>
-                      <p className="eyebrow">{screenCopy.itemCatalog}</p>
-                      <h3>{screenCopy.focusTitle}</h3>
-                    </div>
-                    <Sparkles size={18} />
-                  </div>
-
-                  <div className="admin-insight-list">
-                    <div>
-                      <strong>{menuMetrics.itemsWithoutImage}</strong>
-                      <p>{screenCopy.focusPhotos}</p>
-                    </div>
-                    <div>
-                      <strong>{menuMetrics.inactiveItems}</strong>
-                      <p>{screenCopy.focusStopList}</p>
-                    </div>
-                    <div>
-                      <strong>{menuMetrics.modifierCount}</strong>
-                      <p>{screenCopy.summaryModifiersDetail}</p>
-                    </div>
-                  </div>
-                </section>
               </div>
 
               <section className="admin-panel admin-panel--dense">
@@ -2006,7 +1900,7 @@ export function AdminDashboard() {
                   </div>
                 </div>
 
-                <p className="admin-helper-text">{screenCopy.foundItems(filteredMenu.length, menu.length)}</p>
+                <span className="soft-pill">{screenCopy.foundItems(filteredMenu.length, menu.length)}</span>
               </section>
 
               <section className="admin-item-list">
@@ -2057,23 +1951,6 @@ export function AdminDashboard() {
                     {creatingTable ? screenCopy.creatingTable : screenCopy.createTable}
                   </button>
                 </form>
-
-                <section className="admin-panel admin-panel--feature">
-                  <div className="section-title-row">
-                    <div>
-                      <p className="eyebrow">{screenCopy.tables}</p>
-                      <h3>{screenCopy.summaryTables}</h3>
-                    </div>
-                    <QrCode size={18} />
-                  </div>
-
-                  <div className="admin-insight-list">
-                    <div>
-                      <strong>{tables.length}</strong>
-                      <p>{screenCopy.summaryTablesDetail}</p>
-                    </div>
-                  </div>
-                </section>
               </div>
 
               <section className="admin-table-grid">
@@ -2193,7 +2070,6 @@ export function AdminDashboard() {
                     <div>
                       <p className="eyebrow">{copy.common.visibleToGuest}</p>
                       <h3>{settings.name}</h3>
-                      <p className="admin-helper-text">{screenCopy.previewHint(Math.round(settings.serviceRate * 100))}</p>
                     </div>
                   </div>
                 </article>
