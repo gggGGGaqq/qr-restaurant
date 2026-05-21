@@ -3,7 +3,7 @@ import { Check, ChefHat, Clock3, Flame, X } from "lucide-react";
 import { localizeMenuItemName, localizeModifierName } from "../contentTranslations";
 import { useLanguage } from "../i18n";
 import type { Order } from "../types";
-import { formatMoney, formatOrderAge } from "../utils/format";
+import { formatMoney, formatOrderAge, parseOrderTimestamp } from "../utils/format";
 import { StatusBadge } from "./StatusBadge";
 
 interface OrderCardProps {
@@ -31,7 +31,7 @@ export function OrderCard({
 }: OrderCardProps) {
   const { language, copy } = useLanguage();
   const age = formatOrderAge(order.createdAt, nowTimestamp, language);
-  const ageMinutes = Math.max(0, Math.floor((nowTimestamp - new Date(order.createdAt).getTime()) / 60000));
+  const ageMinutes = Math.max(0, Math.floor((nowTimestamp - parseOrderTimestamp(order.createdAt, nowTimestamp)) / 60000));
   const urgencyClass = ageMinutes >= 20 ? "is-critical" : ageMinutes >= 10 ? "is-warn" : "";
   const servicePercent = order.total > 0 ? Math.round((order.serviceFee / order.total) * 100) : 0;
 

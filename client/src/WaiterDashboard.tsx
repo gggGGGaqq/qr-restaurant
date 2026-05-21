@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -38,7 +38,7 @@ const serviceIcons: Record<ServiceRequestType, typeof BellRing> = {
 type WaiterLane = "incoming" | "active" | "ready";
 
 export function WaiterDashboard() {
-  const nowTimestamp = useTick(15000);
+  const nowTimestamp = useTick(1000);
   const isOnline = useNetworkStatus();
   const { orders, replaceAll, upsert } = useOrders();
   const { language, copy } = useLanguage();
@@ -51,6 +51,8 @@ export function WaiterDashboard() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [mobileLane, setMobileLane] = useState<WaiterLane>("incoming");
+  const syncInFlightRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const screenCopy = useMemo(
     () =>
@@ -108,30 +110,82 @@ export function WaiterDashboard() {
     [copy.serviceRequestLong, language],
   );
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
+  const syncDashboard = useCallback(
+    async (options: { showLoader?: boolean } = {}) => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
 
-    Promise.all([listWaiterOrders(), listWaiterServiceRequests()])
-      .then(([orderData, requestData]) => {
-        if (!active) return;
+      if (options.showLoader) {
+        setLoading(true);
+      }
+
+      try {
+        const [orderData, requestData] = await Promise.all([listWaiterOrders(), listWaiterServiceRequests()]);
+        if (!isMountedRef.current) return;
         replaceAll(orderData);
         setServiceRequests(requestData);
         setError(null);
-      })
-      .catch(() => {
-        if (active) setError(screenCopy.loadError);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+      } catch {
+        if (!isMountedRef.current) return;
+        setError(screenCopy.loadError);
+      } finally {
+        syncInFlightRef.current = false;
+        if (isMountedRef.current && options.showLoader) {
+          setLoading(false);
+        }
+      }
+    },
+    [replaceAll, screenCopy.loadError],
+  );
 
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    void syncDashboard({ showLoader: true });
+  }, [syncDashboard]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      void syncDashboard();
+    };
+    const handleFocus = () => {
+      void syncDashboard();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void syncDashboard();
+      }
+    };
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void syncDashboard();
+      }
+    }, 30000);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [syncDashboard]);
+
+  useEffect(() => {
     const socket = createOrderSocket({ role: "waiter" });
     setSocketConnected(socket.connected);
 
     socket.on("connect", () => {
       setSocketConnected(true);
       setReconnecting(false);
+      void syncDashboard();
     });
     socket.on("disconnect", () => {
       setSocketConnected(false);
@@ -142,6 +196,7 @@ export function WaiterDashboard() {
     socket.io.on("reconnect", () => {
       setReconnecting(false);
       setSocketConnected(true);
+      void syncDashboard();
     });
 
     socket.on("order_created", (rawOrder) => {
@@ -149,7 +204,10 @@ export function WaiterDashboard() {
       upsert(order);
       setNotice(screenCopy.newOrderNotice(order.tableNumber));
     });
-    socket.on("order_updated", (rawOrder) => upsert(normalizeOrder(rawOrder)));
+    socket.on("order_updated", (rawOrder) => {
+      upsert(normalizeOrder(rawOrder));
+      void syncDashboard();
+    });
     socket.on("order_ready", (rawOrder) => {
       const order = normalizeOrder(rawOrder);
       upsert(order);
@@ -170,10 +228,9 @@ export function WaiterDashboard() {
     });
 
     return () => {
-      active = false;
       socket.disconnect();
     };
-  }, [copy.serviceRequestLong, replaceAll, screenCopy, upsert]);
+  }, [copy.serviceRequestLong, screenCopy, syncDashboard, upsert]);
 
   useEffect(() => {
     if (!notice) return;

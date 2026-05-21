@@ -9,12 +9,26 @@ export function formatMoney(value: number, language: AppLanguage = getStoredLang
   }).format(value);
 }
 
+export function parseOrderTimestamp(value: string, now = Date.now()): number {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return now;
+
+  if (timestamp > now + 60000 && value.endsWith("Z")) {
+    const localTimestamp = new Date(value.slice(0, -1)).getTime();
+    if (Number.isFinite(localTimestamp) && Math.abs(localTimestamp - now) < Math.abs(timestamp - now)) {
+      return localTimestamp;
+    }
+  }
+
+  return timestamp;
+}
+
 export function formatOrderAge(
   createdAt: string,
   now: number,
   language: AppLanguage = getStoredLanguage(),
 ): string {
-  const seconds = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 1000));
+  const seconds = Math.max(0, Math.floor((now - parseOrderTimestamp(createdAt, now)) / 1000));
   const minutes = Math.floor(seconds / 60);
   const restSeconds = seconds % 60;
 
