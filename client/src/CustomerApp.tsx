@@ -2,7 +2,6 @@ import { type CSSProperties, type FormEvent, Fragment, memo, type MouseEvent, us
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  AlertCircle,
   BellRing,
   Droplets,
   Minus,
@@ -1213,6 +1212,14 @@ export function CustomerApp() {
     </Fragment>
   ) : null;
 
+  const showConnectionOverlay = Boolean(
+    session &&
+    !error &&
+    (!isOnline || reconnecting || !socketConnected),
+  );
+  const connectionOverlayMessage = !isOnline ? screenCopy.offline : screenCopy.reconnecting;
+  const connectionOverlayLabel = session ? copy.common.table(session.tableNumber) : screenCopy.tableMenu;
+
   return (
     <>
       <main className="app-shell customer-shell" style={shellStyle}>
@@ -1226,12 +1233,32 @@ export function CustomerApp() {
           </div>
         </header>
 
-        {(!isOnline || reconnecting || !socketConnected) && (
-          <div className="warning-banner" role="status">
-            <AlertCircle size={16} />
-            <span>{!isOnline ? screenCopy.offline : screenCopy.reconnecting}</span>
-          </div>
-        )}
+        <AnimatePresence>
+          {showConnectionOverlay && (
+            <motion.div
+              key="connection-overlay"
+              className="connection-overlay"
+              role="status"
+              aria-live="polite"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="connection-overlay__panel"
+                initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                <div className="connection-overlay__spinner" aria-hidden="true" />
+                <p className="eyebrow">{settings.name}</p>
+                <strong>{connectionOverlayLabel}</strong>
+                <p>{connectionOverlayMessage}</p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence mode="popLayout">
           {lastActionText && (

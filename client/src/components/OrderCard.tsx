@@ -137,7 +137,7 @@ export function OrderCard({
                 {item.qty} x {localizeMenuItemName({ id: item.menuItemId, name: item.name }, language)}
               </span>
               {item.modifiers.length > 0 && (
-                <small>
+                <small className="order-line__meta">
                   {item.modifiers
                     .map((modifier) =>
                       localizeModifierName(
@@ -148,7 +148,7 @@ export function OrderCard({
                     .join(", ")}
                 </small>
               )}
-              {item.note && <small>{copy.common.commentToDish(item.note)}</small>}
+              {item.note && <small className="order-line__note">{copy.common.commentToDish(item.note)}</small>}
             </div>
             <strong>{formatMoney(item.lineTotal, language)}</strong>
           </div>

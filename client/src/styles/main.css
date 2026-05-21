@@ -442,6 +442,55 @@ h3 {
   transform: translateX(-50%);
 }
 
+.connection-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 118;
+  display: grid;
+  place-items: center;
+  padding:
+    max(18px, env(safe-area-inset-top, 0px) + 12px)
+    max(14px, env(safe-area-inset-right, 0px) + 12px)
+    max(18px, env(safe-area-inset-bottom, 0px) + 12px)
+    max(14px, env(safe-area-inset-left, 0px) + 12px);
+  background: rgba(245, 247, 246, 0.46);
+  backdrop-filter: blur(8px);
+}
+
+.connection-overlay__panel {
+  width: min(100%, 420px);
+  border: 1px solid rgba(47, 111, 94, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow);
+  padding: 18px 16px;
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+
+.connection-overlay__panel strong {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.connection-overlay__panel p:last-child {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.connection-overlay__spinner {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto;
+  border: 3px solid var(--primary-soft);
+  border-top-color: var(--primary);
+  border-radius: 999px;
+  animation: connection-spin 0.9s linear infinite;
+}
+
 .menu-toolbar {
   position: sticky;
   top: 0;
@@ -863,6 +912,29 @@ h3 {
   line-height: 1.35;
 }
 
+.order-line__meta,
+.order-line__note,
+.orders-sheet__line small,
+.orders-sheet__note,
+.cart-sheet__item-copy p,
+.cart-sheet__item-copy small {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.order-line__note,
+.order-note,
+.orders-sheet__note {
+  white-space: pre-wrap;
+}
+
+.order-line__note {
+  max-height: 72px;
+  overflow-y: auto;
+  padding-right: 2px;
+  overscroll-behavior: contain;
+}
+
 .order-note {
   border-radius: var(--radius);
   background: var(--surface-soft);
@@ -870,6 +942,9 @@ h3 {
   padding: 9px 10px;
   font-size: 0.86rem;
   line-height: 1.4;
+  max-height: 112px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .order-line span {
@@ -1033,6 +1108,12 @@ h3 {
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
+  }
+}
+
+@keyframes connection-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -1357,6 +1438,10 @@ h3 {
   gap: 3px;
 }
 
+.orders-sheet__batch-header > div {
+  min-width: 0;
+}
+
 .orders-sheet__line span {
   font-weight: 800;
 }
@@ -1376,6 +1461,9 @@ h3 {
 .orders-sheet__note {
   border-top: 1px dashed var(--border-strong);
   padding-top: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .is-busy {
@@ -2696,6 +2784,12 @@ h3 {
     justify-self: end;
   }
 
+  .orders-sheet__batch-header,
+  .orders-sheet__line {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .owner-metrics {
     grid-template-columns: 1fr;
   }
@@ -2714,6 +2808,98 @@ h3 {
 
   .service-request-card .button {
     width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .menu-toolbar__row {
+    grid-template-columns: 1fr;
+  }
+
+  .orders-shortcut {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .orders-shortcut span {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .category-nav {
+    top: 110px;
+  }
+
+  .cart-fab {
+    min-height: 58px;
+    padding: 10px 12px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: 6px;
+    border-radius: 24px;
+  }
+
+  .cart-fab__copy {
+    min-width: 0;
+  }
+
+  .cart-fab__copy span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cart-fab__total {
+    grid-column: 2 / -1;
+    justify-self: end;
+  }
+
+  .cart-sheet {
+    max-height: min(92dvh, 760px);
+    gap: 10px;
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px) + 8px);
+  }
+
+  .cart-sheet--orders {
+    max-height: min(94dvh, 820px);
+  }
+}
+
+@media (max-width: 360px) {
+  .app-shell.customer-shell {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .customer-shell h1 {
+    font-size: clamp(1.32rem, 6.2vw, 1.72rem);
+  }
+
+  .search-box {
+    min-height: 44px;
+    padding: 0 10px;
+  }
+
+  .menu-card__body {
+    padding: 10px 10px 12px;
+    gap: 12px;
+  }
+
+  .menu-card__footer {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .menu-card__add {
+    width: 100%;
+    max-width: none;
+  }
+
+  .cart-fab {
+    left: max(12px, env(safe-area-inset-left, 0px) + 6px);
+    right: max(12px, env(safe-area-inset-right, 0px) + 6px);
   }
 }
 

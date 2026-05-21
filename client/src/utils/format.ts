@@ -2,11 +2,17 @@ import type { AppLanguage } from "../i18n";
 import { getStoredLanguage } from "../i18n";
 
 export function formatMoney(value: number, language: AppLanguage = getStoredLanguage()): string {
-  return new Intl.NumberFormat(language === "kk" ? "kk-KZ" : "ru-KZ", {
-    style: "currency",
-    currency: "KZT",
+  const amount = Number(value);
+  const roundedAmount = Number.isFinite(amount) ? Math.round(amount) : 0;
+  const locale = language === "kk" ? "kk-KZ" : "ru-RU";
+  const formattedNumber = new Intl.NumberFormat(locale, {
     maximumFractionDigits: 0,
-  }).format(value);
+    minimumFractionDigits: 0,
+  })
+    .format(Math.abs(roundedAmount))
+    .replace(/[\u00A0\u202F]/g, " ");
+
+  return `${roundedAmount < 0 ? "-" : ""}${formattedNumber}₸`;
 }
 
 export function parseOrderTimestamp(value: string, now = Date.now()): number {
