@@ -2,7 +2,6 @@ import { type ChangeEvent, type FormEvent, type ReactNode, useDeferredValue, use
 import { motion } from "framer-motion";
 import QRCode from "qrcode";
 import {
-  Copy,
   Download,
   ImagePlus,
   Palette,
@@ -120,7 +119,6 @@ interface AdminScreenCopy {
   draftModifiers: string;
   remove: string;
   availableNow: string;
-  copyLink: string;
   downloadQr: string;
   saveTable: string;
   restaurantName: string;
@@ -129,7 +127,6 @@ interface AdminScreenCopy {
   coverImage: string;
   saveBrand: string;
   genericError: string;
-  copiedLink: string;
   savedSettings: string;
   menuItemSaved: (name: string) => string;
   modifierAdded: (name: string) => string;
@@ -185,23 +182,6 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
-}
-
-async function copyText(value: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const node = document.createElement("textarea");
-  node.value = value;
-  node.setAttribute("readonly", "true");
-  node.style.position = "absolute";
-  node.style.left = "-9999px";
-  document.body.appendChild(node);
-  node.select();
-  document.execCommand("copy");
-  document.body.removeChild(node);
 }
 
 function MetricCard({
@@ -322,12 +302,10 @@ function ImageUploadField({
 
 function ModifierEditor({
   modifier,
-  language,
   screenCopy,
   onSave,
 }: {
   modifier: MenuModifier;
-  language: "ru" | "kk";
   screenCopy: AdminScreenCopy;
   onSave: (
     modifierId: number,
@@ -424,11 +402,6 @@ function ModifierEditor({
             onChange={(event) => setDraft((current) => ({ ...current, sortOrder: event.target.value }))}
           />
         </label>
-      </div>
-
-      <div className="admin-card-note">
-        <strong>{formatMoney(modifier.priceDelta, language)}</strong>
-        <span>{modifier.active ? screenCopy.availableNow : screenCopy.stopListLabel}</span>
       </div>
 
       <div className="admin-modifier-card__actions">
@@ -606,7 +579,7 @@ function MenuItemCard({
 
   return (
     <motion.article
-      className={`admin-item-card ${item.active ? "" : "is-disabled"}`}
+      className={`admin-item-card ${item.active ? "" : "is-disabled"} ${editorOpen ? "is-editing" : ""}`}
       layout
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
@@ -774,7 +747,6 @@ function MenuItemCard({
                 <ModifierEditor
                   key={modifier.id}
                   modifier={modifier}
-                  language={language}
                   screenCopy={screenCopy}
                   onSave={onSaveModifier}
                 />
@@ -833,17 +805,13 @@ function MenuItemCard({
 function TableCard({
   table,
   qrCode,
-  entryUrl,
   screenCopy,
   onSave,
-  onCopyLink,
 }: {
   table: Table;
   qrCode?: string;
-  entryUrl: string;
   screenCopy: AdminScreenCopy;
   onSave: (id: number, input: Partial<Pick<Table, "number">>) => Promise<void>;
-  onCopyLink: (url: string) => Promise<void>;
 }) {
   const [number, setNumber] = useState(table.number);
   const [saving, setSaving] = useState(false);
@@ -887,11 +855,6 @@ function TableCard({
         </label>
 
         <div className="admin-table-card__actions">
-          <button className="button button-secondary" type="button" onClick={() => void onCopyLink(entryUrl)}>
-            <Copy size={16} />
-            {screenCopy.copyLink}
-          </button>
-
           {qrCode && (
             <a className="button button-secondary" href={qrCode} download={`table-${table.number}-qr.png`}>
               <Download size={16} />
@@ -937,6 +900,7 @@ export function AdminDashboard() {
   const [creatingItem, setCreatingItem] = useState(false);
   const [creatingTable, setCreatingTable] = useState(false);
   const [currentTab, setCurrentTab] = useState<AdminTab>("menu");
+  const [newItemFormOpen, setNewItemFormOpen] = useState(false);
   const [menuStatusFilter, setMenuStatusFilter] = useState<MenuStatusFilter>("all");
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<MenuCategoryFilter>("all");
   const [menuSort, setMenuSort] = useState<MenuSort>("active-first");
@@ -1018,7 +982,6 @@ export function AdminDashboard() {
             draftModifiers: "Жаңа позиция модификаторлары",
             remove: "Өшіру",
             availableNow: copy.common.available,
-            copyLink: "Сілтемені көшіру",
             downloadQr: "QR жүктеу",
             saveTable: "Үстелді сақтау",
             restaurantName: "Мейрамхана атауы",
@@ -1027,7 +990,6 @@ export function AdminDashboard() {
             coverImage: "Мәзір мұқабасы",
             saveBrand: "Брендті сақтау",
             genericError: "Әрекетті орындау мүмкін болмады.",
-            copiedLink: "Сілтеме көшірілді.",
             savedSettings: "Баптаулар сақталды.",
             menuItemSaved: (name: string) => `"${name}" жаңартылды.`,
             modifierAdded: (name: string) => `"${name}" модификаторы қосылды.`,
@@ -1106,7 +1068,6 @@ export function AdminDashboard() {
             draftModifiers: "Модификаторы для нового блюда",
             remove: "Удалить",
             availableNow: copy.common.available,
-            copyLink: "Копировать ссылку",
             downloadQr: "Скачать QR",
             saveTable: "Сохранить стол",
             restaurantName: "Название ресторана",
@@ -1115,7 +1076,6 @@ export function AdminDashboard() {
             coverImage: "Обложка меню",
             saveBrand: "Сохранить бренд",
             genericError: "Не удалось выполнить действие.",
-            copiedLink: "Ссылка скопирована.",
             savedSettings: "Настройки сохранены.",
             menuItemSaved: (name: string) => `Позиция "${name}" обновлена.`,
             modifierAdded: (name: string) => `Модификатор "${name}" добавлен.`,
@@ -1448,6 +1408,7 @@ export function AdminDashboard() {
         priceDelta: "",
         active: true,
       });
+      setNewItemFormOpen(false);
       setNotice(screenCopy.itemAdded(created.name));
       setCurrentTab("menu");
     } catch (error) {
@@ -1485,17 +1446,6 @@ export function AdminDashboard() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : screenCopy.genericError);
       throw error;
-    }
-  }
-
-  async function handleCopyLink(url: string) {
-    setErrorMessage(null);
-
-    try {
-      await copyText(url);
-      setNotice(screenCopy.copiedLink);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : screenCopy.genericError);
     }
   }
 
@@ -1618,6 +1568,15 @@ export function AdminDashboard() {
                         <option value="price-low">{screenCopy.sortPriceLow}</option>
                       </select>
                     </label>
+
+                    <button
+                      className={`button ${newItemFormOpen ? "button-secondary" : "button-primary"} admin-new-item-button`}
+                      type="button"
+                      onClick={() => setNewItemFormOpen((current) => !current)}
+                    >
+                      <Plus size={16} />
+                      {newItemFormOpen ? screenCopy.closeEditor : screenCopy.newMenuItem}
+                    </button>
                   </div>
                 </div>
 
@@ -1647,8 +1606,8 @@ export function AdminDashboard() {
                 <span className="soft-pill">{screenCopy.foundItems(filteredMenu.length, menu.length)}</span>
               </section>
 
-              <div className="admin-menu-layout">
-                <div className="admin-creation-grid">
+              {newItemFormOpen && (
+                <div className="admin-creation-grid admin-creation-grid--menu-form">
                 <form className="admin-creation-card admin-creation-card--menu" onSubmit={(event) => void submitNewItem(event)}>
                   <div className="section-title-row">
                     <div>
@@ -1836,6 +1795,7 @@ export function AdminDashboard() {
                 </form>
 
               </div>
+              )}
 
               <section className="admin-item-list admin-item-list--catalog">
                 {filteredMenu.length > 0 ? (
@@ -1856,7 +1816,6 @@ export function AdminDashboard() {
                   <div className="empty-state">{screenCopy.noItems}</div>
                 )}
               </section>
-              </div>
             </div>
           )}
 
@@ -1894,10 +1853,8 @@ export function AdminDashboard() {
                     key={table.id}
                     table={table}
                     qrCode={qrCodes[table.id]}
-                    entryUrl={`${baseUrl}/table/${table.id}`}
                     screenCopy={screenCopy}
                     onSave={saveTableNumber}
-                    onCopyLink={handleCopyLink}
                   />
                 ))}
               </section>

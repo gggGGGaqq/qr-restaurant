@@ -2877,8 +2877,7 @@ h3 {
   border-style: dashed;
 }
 
-.admin-menu-workbench,
-.admin-menu-layout {
+.admin-menu-workbench {
   display: grid;
   gap: 16px;
 }
@@ -2895,6 +2894,10 @@ h3 {
 
 .admin-filter-row--menu {
   align-items: end;
+}
+
+.admin-new-item-button {
+  min-height: 44px;
 }
 
 .admin-category-strip {
@@ -2945,14 +2948,24 @@ h3 {
   gap: 14px;
 }
 
+.admin-creation-grid--menu-form {
+  grid-template-columns: 1fr;
+}
+
 .admin-item-list--catalog {
   align-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(390px, 1fr));
 }
 
 .admin-item-card {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);
   min-height: 0;
+}
+
+.admin-item-card.is-editing {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
 }
 
 .admin-item-card__preview {
@@ -2980,6 +2993,13 @@ h3 {
 
 .admin-card-note span {
   min-width: 0;
+}
+
+.admin-item-card:not(.is-editing) .admin-card-note span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .admin-item-card__quick-actions {
@@ -3044,14 +3064,71 @@ h3 {
     align-items: end;
   }
 
-  .admin-menu-layout {
-    grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1.28fr);
-    align-items: start;
+  .admin-filter-row--menu {
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.82fr) auto;
   }
 
   .admin-creation-card--menu {
-    position: sticky;
-    top: 92px;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.75fr);
+    align-items: start;
+  }
+
+  .admin-creation-card--menu > .section-title-row,
+  .admin-creation-card--menu > .admin-modifier-section {
+    grid-column: 1 / -1;
+  }
+
+  .admin-creation-card--menu > .admin-form-grid {
+    grid-column: 1;
+  }
+
+  .admin-creation-card--menu > .admin-upload-field {
+    grid-column: 2;
+  }
+
+  .admin-creation-card--menu > .admin-checkbox {
+    grid-column: 1;
+  }
+
+  .admin-creation-card--menu > .button {
+    grid-column: 2;
+    align-self: center;
+  }
+
+  .admin-item-card__editor {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+  }
+
+  .admin-item-card__editor > .section-title-row,
+  .admin-item-card__editor > .admin-item-card__actions,
+  .admin-item-card__editor > .admin-modifier-section {
+    grid-column: 1 / -1;
+  }
+
+  .admin-item-card__editor > .admin-form-grid {
+    grid-column: 1;
+  }
+
+  .admin-item-card__editor > .admin-upload-field {
+    grid-column: 2;
+  }
+
+  .admin-modifier-card {
+    padding: 10px;
+  }
+
+  .admin-modifier-card__grid {
+    grid-template-columns: minmax(0, 1fr) 140px 96px;
+    align-items: end;
+  }
+
+  .admin-modifier-card__actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-modifier-section > .admin-inline-form {
+    grid-template-columns: minmax(0, 1fr) 140px auto auto;
+    align-items: end;
   }
 }
 
@@ -3093,10 +3170,36 @@ h3 {
 
   .admin-menu-controls .admin-toolbar,
   .admin-filter-row--menu,
-  .admin-menu-layout,
   .admin-item-card__editor .admin-upload,
   .admin-creation-card--menu .admin-upload {
     grid-template-columns: 1fr;
+  }
+
+  .admin-item-card__editor .admin-upload,
+  .admin-creation-card--menu .admin-upload {
+    padding: 8px;
+  }
+
+  .admin-item-card__editor .admin-upload.has-image,
+  .admin-creation-card--menu .admin-upload.has-image {
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .admin-item-card__editor .admin-upload__preview,
+  .admin-creation-card--menu .admin-upload__preview {
+    min-height: 142px;
+  }
+
+  .admin-item-card__editor .admin-upload.has-image .admin-upload__preview,
+  .admin-creation-card--menu .admin-upload.has-image .admin-upload__preview {
+    min-height: 96px;
+  }
+
+  .admin-item-card__editor .admin-upload__empty,
+  .admin-creation-card--menu .admin-upload__empty {
+    min-height: 142px;
+    padding: 12px;
   }
 
   .admin-category-strip {
@@ -3107,6 +3210,20 @@ h3 {
     grid-template-columns: 104px minmax(0, 1fr);
   }
 
+  .admin-item-card.is-editing {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-item-card.is-editing > .admin-item-card__preview {
+    height: 156px;
+    min-height: 156px;
+    aspect-ratio: auto;
+  }
+
+  .admin-item-card.is-editing > .admin-item-card__preview img {
+    min-height: 0;
+  }
+
   .admin-item-card__preview {
     min-height: 150px;
   }
@@ -3115,10 +3232,73 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .admin-item-card__quick-actions,
-  .admin-item-card__actions,
+  .admin-item-card.is-editing .admin-card-note {
+    display: none;
+  }
+
+  .admin-item-card__actions {
+    grid-template-columns: 1fr;
+  }
+
   .admin-table-card__actions {
     grid-template-columns: 1fr;
+  }
+
+  .admin-modifier-section {
+    gap: 10px;
+    padding-top: 10px;
+  }
+
+  .admin-modifier-list-grid {
+    gap: 8px;
+  }
+
+  .admin-modifier-card {
+    gap: 9px;
+    padding: 10px;
+  }
+
+  .admin-modifier-card__headline {
+    align-items: center;
+  }
+
+  .admin-modifier-card__headline .eyebrow {
+    display: none;
+  }
+
+  .admin-modifier-card__headline h4 {
+    margin: 0;
+    font-size: 0.96rem;
+  }
+
+  .admin-modifier-card__grid {
+    grid-template-columns: minmax(0, 1fr) minmax(92px, 0.58fr);
+    gap: 8px;
+  }
+
+  .admin-modifier-card__grid .admin-field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .admin-modifier-card__actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .admin-modifier-card__actions .button {
+    min-height: 38px;
+    padding: 0 6px;
+    font-size: 0.72rem;
+  }
+
+  .admin-modifier-section > .admin-inline-form {
+    grid-template-columns: minmax(0, 1fr) minmax(94px, 0.55fr);
+    gap: 8px;
+  }
+
+  .admin-modifier-section > .admin-inline-form .admin-checkbox,
+  .admin-modifier-section > .admin-inline-form .button {
+    grid-column: 1 / -1;
   }
 
   .admin-table-card {
@@ -3131,14 +3311,17 @@ h3 {
     grid-template-columns: 1fr 1fr;
   }
 
-  .admin-item-card,
-  .admin-table-card {
+  .admin-item-card {
+    grid-template-columns: 108px minmax(0, 1fr);
+  }
+
+  .admin-item-card.is-editing {
     grid-template-columns: 1fr;
   }
 
-  .admin-item-card__preview {
-    min-height: 0;
-    aspect-ratio: 16 / 10;
+  .admin-item-card:not(.is-editing) .admin-item-card__preview {
+    min-height: 100%;
+    aspect-ratio: auto;
   }
 
   .admin-table-card__qr {
