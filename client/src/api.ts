@@ -259,6 +259,19 @@ export async function updateMenuItem(
   );
 }
 
+export async function uploadAdminImage(input: { fileName: string; dataUrl: string }): Promise<{ url: string }> {
+  return (
+    await request<{ url: string }>(
+      "/api/admin/uploads",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      { authRole: "admin" },
+    )
+  ).data;
+}
+
 export async function createMenuModifier(
   menuItemId: number,
   input: {

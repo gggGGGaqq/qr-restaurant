@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import morgan from "morgan";
@@ -97,6 +100,11 @@ const settingsSchema = z.object({
   serviceRate: z.coerce.number().min(0).max(0.25),
 });
 
+const imageUploadSchema = z.object({
+  fileName: z.string().trim().max(180).optional(),
+  dataUrl: z.string().max(7_000_000),
+});
+
 const serviceRequestSchema = z.object({
   tableId: z.coerce.number().int().positive(),
   sessionId: z.string().uuid(),
@@ -125,6 +133,43 @@ const dbConnectionCodes = new Set([
   "ER_ACCESS_DENIED_ERROR",
   "ER_BAD_DB_ERROR",
 ]);
+
+const uploadRoot = path.resolve(__dirname, "..", "..", "uploads");
+const imageExtensionsByMime: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function parseImageDataUrl(dataUrl: string): { buffer: Buffer; extension: string } {
+  const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) {
+    throw new HttpError(400, "Можно загрузить только JPG, PNG или WebP.");
+  }
+
+  const extension = imageExtensionsByMime[match[1]];
+  const buffer = Buffer.from(match[2], "base64");
+
+  if (!extension || buffer.length === 0) {
+    throw new HttpError(400, "Не удалось прочитать изображение.");
+  }
+
+  if (buffer.length > 5 * 1024 * 1024) {
+    throw new HttpError(400, "Изображение слишком большое. Максимум 5 МБ.");
+  }
+
+  return { buffer, extension };
+}
+
+function safeUploadName(fileName = "image"): string {
+  return (
+    fileName
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48) || "image"
+  );
+}
 
 function isDatabaseConnectionError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -158,8 +203,9 @@ export function createApp() {
   const ownerOnly = requireRole("owner");
 
   app.use(cors({ origin: config.clientUrl }));
-  app.use(express.json({ limit: "512kb" }));
+  app.use(express.json({ limit: "8mb" }));
   app.use(morgan("dev"));
+  app.use("/uploads", express.static(uploadRoot, { immutable: true, maxAge: "365d" }));
 
   app.get(
     "/health",
@@ -250,6 +296,27 @@ export function createApp() {
       const item = await updateMenuItem(menuItemId, updateMenuItemSchema.parse(req.body));
       publishMenuUpdated();
       res.json({ data: item });
+    }),
+  );
+
+  app.post(
+    "/api/admin/uploads",
+    adminOnly,
+    asyncHandler(async (req, res) => {
+      const input = imageUploadSchema.parse(req.body);
+      const { buffer, extension } = parseImageDataUrl(input.dataUrl);
+      const folder = path.join(uploadRoot, "menu");
+      const fileName = `${Date.now()}-${randomUUID().slice(0, 8)}-${safeUploadName(input.fileName)}.${extension}`;
+      const host = req.get("host") ?? new URL(config.clientUrl).host;
+
+      await mkdir(folder, { recursive: true });
+      await writeFile(path.join(folder, fileName), buffer);
+
+      res.status(201).json({
+        data: {
+          url: `${req.protocol}://${host}/uploads/menu/${fileName}`,
+        },
+      });
     }),
   );
 

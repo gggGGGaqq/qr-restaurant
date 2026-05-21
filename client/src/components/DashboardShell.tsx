@@ -1,4 +1,4 @@
-import { Bell, ChefHat, Utensils } from "lucide-react";
+import { Bell, ChefHat, Settings2, Utensils } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -6,9 +6,10 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 interface DashboardShellProps {
   title: string;
   subtitle: string;
-  icon: "waiter" | "kitchen";
+  icon: "waiter" | "kitchen" | "admin";
   metaLabel?: string;
   notice?: string | null;
+  className?: string;
   children: ReactNode;
 }
 
@@ -18,12 +19,13 @@ export function DashboardShell({
   icon,
   metaLabel,
   notice,
+  className,
   children,
 }: DashboardShellProps) {
-  const Icon = icon === "kitchen" ? ChefHat : Utensils;
+  const Icon = icon === "kitchen" ? ChefHat : icon === "admin" ? Settings2 : Utensils;
 
   return (
-    <main className="app-shell dashboard-shell">
+    <main className={`app-shell dashboard-shell ${className ?? ""}`.trim()}>
       <header className="dashboard-header">
         <div className="dashboard-header__copy">
           <p className="eyebrow">{subtitle}</p>
