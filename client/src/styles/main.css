@@ -1439,6 +1439,30 @@ h3 {
   margin-bottom: 14px;
 }
 
+.order-history-section {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+}
+
+.order-history-section .section-title-row {
+  margin-bottom: 0;
+}
+
+.order-history-section .section-title-row + .order-history-grid,
+.order-history-section .section-title-row + .empty-state,
+.order-history-section .section-title-row + .dashboard-skeleton {
+  margin-top: 10px;
+}
+
+.order-history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
 .waiter-mobile-tabs {
   margin-bottom: 14px;
   padding: 4px;

@@ -376,8 +376,16 @@ export async function listWaiterOrders(): Promise<Order[]> {
   return (await request<Order[]>("/api/waiter/orders", {}, { authRole: "waiter" })).data.map(normalizeOrder);
 }
 
+export async function listWaiterOrderHistory(): Promise<Order[]> {
+  return (await request<Order[]>("/api/waiter/orders/history", {}, { authRole: "waiter" })).data.map(normalizeOrder);
+}
+
 export async function listKitchenOrders(): Promise<Order[]> {
   return (await request<Order[]>("/api/kitchen/orders", {}, { authRole: "kitchen" })).data.map(normalizeOrder);
+}
+
+export async function listKitchenOrderHistory(): Promise<Order[]> {
+  return (await request<Order[]>("/api/kitchen/orders/history", {}, { authRole: "kitchen" })).data.map(normalizeOrder);
 }
 
 export async function getOwnerSummary(): Promise<OwnerSummary> {
@@ -395,10 +403,10 @@ export async function getOwnerSummary(): Promise<OwnerSummary> {
 
 export async function orderAction(
   orderId: string,
-  action: "accept" | "reject" | "cooking" | "ready" | "complete",
+  action: "accept" | "reject" | "cooking" | "ready" | "complete" | "reopen-new" | "reopen-ready" | "reopen-cooking",
 ): Promise<Order> {
   const authRole: ProtectedRole =
-    action === "cooking" || action === "ready" ? "kitchen" : "waiter";
+    action === "cooking" || action === "ready" || action === "reopen-cooking" ? "kitchen" : "waiter";
 
   return normalizeOrder(
     (

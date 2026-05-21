@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import {
   completeServiceRequest,
+  listWaiterOrderHistory,
   listWaiterOrders,
   listWaiterServiceRequests,
   normalizeOrder,
@@ -51,7 +52,13 @@ export function WaiterDashboard() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [mobileLane, setMobileLane] = useState<WaiterLane>("incoming");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
   const syncInFlightRef = useRef(false);
+  const historySyncInFlightRef = useRef(false);
+  const historyOpenRef = useRef(false);
   const isMountedRef = useRef(true);
 
   const screenCopy = useMemo(
@@ -81,6 +88,12 @@ export function WaiterDashboard() {
           noActive: "Белсенді тапсырыстар жоқ.",
           readyToServe: "Беруге дайын",
           noReady: "Дайын тапсырыстар жоқ.",
+          history: "Тарих",
+          showHistory: "Тарихты ашу",
+          hideHistory: "Тарихты жабу",
+          historyEmpty: "Жабылған немесе қайтарылған тапсырыстар жоқ.",
+          restoreOrder: "Қайтару",
+          restoredNotice: (orderId: string) => `Тапсырыс ${orderId.slice(0, 8)} қайта ашылды`,
         }
         : {
           title: "Официант",
@@ -106,8 +119,40 @@ export function WaiterDashboard() {
           noActive: "Активных заказов нет.",
           readyToServe: "Готово к подаче",
           noReady: "Готовых заказов нет.",
+          history: "История",
+          showHistory: "Открыть историю",
+          hideHistory: "Закрыть историю",
+          historyEmpty: "Закрытых или отклоненных заказов пока нет.",
+          restoreOrder: "Вернуть",
+          restoredNotice: (orderId: string) => `Заказ ${orderId.slice(0, 8)} снова открыт`,
         },
     [copy.serviceRequestLong, language],
+  );
+
+  const syncHistory = useCallback(
+    async (options: { showLoader?: boolean } = {}) => {
+      if (historySyncInFlightRef.current) return;
+      historySyncInFlightRef.current = true;
+
+      if (options.showLoader) {
+        setHistoryLoading(true);
+      }
+
+      try {
+        const historyData = await listWaiterOrderHistory();
+        if (!isMountedRef.current) return;
+        setHistoryOrders(historyData);
+      } catch {
+        if (!isMountedRef.current) return;
+        setError(screenCopy.loadError);
+      } finally {
+        historySyncInFlightRef.current = false;
+        if (isMountedRef.current && options.showLoader) {
+          setHistoryLoading(false);
+        }
+      }
+    },
+    [screenCopy.loadError],
   );
 
   const syncDashboard = useCallback(
@@ -179,6 +224,13 @@ export function WaiterDashboard() {
   }, [syncDashboard]);
 
   useEffect(() => {
+    historyOpenRef.current = historyOpen;
+    if (historyOpen) {
+      void syncHistory({ showLoader: true });
+    }
+  }, [historyOpen, syncHistory]);
+
+  useEffect(() => {
     const socket = createOrderSocket({ role: "waiter" });
     setSocketConnected(socket.connected);
 
@@ -207,11 +259,17 @@ export function WaiterDashboard() {
     socket.on("order_updated", (rawOrder) => {
       upsert(normalizeOrder(rawOrder));
       void syncDashboard();
+      if (historyOpenRef.current) {
+        void syncHistory();
+      }
     });
     socket.on("order_ready", (rawOrder) => {
       const order = normalizeOrder(rawOrder);
       upsert(order);
       setNotice(screenCopy.readyNotice(order.id, order.tableNumber));
+      if (historyOpenRef.current) {
+        void syncHistory();
+      }
     });
     socket.on("service_request_created", (rawRequest) => {
       const request = normalizeServiceRequest(rawRequest);
@@ -230,7 +288,7 @@ export function WaiterDashboard() {
     return () => {
       socket.disconnect();
     };
-  }, [copy.serviceRequestLong, screenCopy, syncDashboard, upsert]);
+  }, [copy.serviceRequestLong, screenCopy, syncDashboard, syncHistory, upsert]);
 
   useEffect(() => {
     if (!notice) return;
@@ -271,8 +329,28 @@ export function WaiterDashboard() {
     setBusyId(order.id);
     try {
       upsert(await orderAction(order.id, action));
+      if (historyOpenRef.current) {
+        void syncHistory();
+      }
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function restoreHistoryOrder(order: Order) {
+    const action = order.status === "REJECTED" ? "reopen-new" : order.status === "COMPLETED" ? "reopen-ready" : null;
+    if (!action) return;
+
+    setHistoryBusyId(order.id);
+    try {
+      const restored = await orderAction(order.id, action);
+      upsert(restored);
+      setHistoryOrders((current) => current.filter((item) => item.id !== restored.id));
+      setNotice(screenCopy.restoredNotice(restored.id));
+      void syncDashboard();
+      void syncHistory();
+    } finally {
+      setHistoryBusyId(null);
     }
   }
 
@@ -356,6 +434,40 @@ export function WaiterDashboard() {
               })}
             </AnimatePresence>
           </div>
+        )}
+      </section>
+
+      <section className="order-history-section">
+        <div className="section-title-row">
+          <h2>{screenCopy.history}</h2>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => setHistoryOpen((current) => !current)}
+          >
+            {historyOpen ? screenCopy.hideHistory : screenCopy.showHistory}
+          </button>
+        </div>
+
+        {historyOpen && (
+          historyLoading ? (
+            <Skeleton className="dashboard-skeleton" />
+          ) : historyOrders.length === 0 ? (
+            <p className="empty-state">{screenCopy.historyEmpty}</p>
+          ) : (
+            <div className="order-history-grid">
+              {historyOrders.map((order) => (
+                <div className={historyBusyId === order.id ? "is-busy" : ""} key={order.id}>
+                  <OrderCard
+                    order={order}
+                    variant="waiter"
+                    restoreLabel={screenCopy.restoreOrder}
+                    onRestore={(next) => void restoreHistoryOrder(next)}
+                  />
+                </div>
+              ))}
+            </div>
+          )
         )}
       </section>
 

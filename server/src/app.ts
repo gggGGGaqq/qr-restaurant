@@ -427,6 +427,16 @@ export function createApp() {
   );
 
   app.get(
+    "/api/waiter/orders/history",
+    waiterOnly,
+    asyncHandler(async (_req, res) => {
+      res.json({
+        data: await listOrdersByStatus(["COMPLETED", "REJECTED"]),
+      });
+    }),
+  );
+
+  app.get(
     "/api/waiter/service-requests",
     waiterOnly,
     asyncHandler(async (_req, res) => {
@@ -439,6 +449,14 @@ export function createApp() {
     kitchenOnly,
     asyncHandler(async (_req, res) => {
       res.json({ data: await listOrdersByStatus(["ACCEPTED", "COOKING"]) });
+    }),
+  );
+
+  app.get(
+    "/api/kitchen/orders/history",
+    kitchenOnly,
+    asyncHandler(async (_req, res) => {
+      res.json({ data: await listOrdersByStatus(["READY", "COMPLETED"]) });
     }),
   );
 
@@ -495,6 +513,38 @@ export function createApp() {
   );
 
   app.post(
+    "/api/orders/:orderId/reopen-new",
+    waiterOnly,
+    asyncHandler(async (req, res) => {
+      const orderId = uuidParamSchema.parse(req.params.orderId);
+      const order = await transitionOrderStatus(
+        orderId,
+        ["REJECTED"],
+        "NEW",
+        "ORDER_REOPENED",
+      );
+      publishOrderUpdated(order);
+      res.json({ data: order });
+    }),
+  );
+
+  app.post(
+    "/api/orders/:orderId/reopen-ready",
+    waiterOnly,
+    asyncHandler(async (req, res) => {
+      const orderId = uuidParamSchema.parse(req.params.orderId);
+      const order = await transitionOrderStatus(
+        orderId,
+        ["COMPLETED"],
+        "READY",
+        "ORDER_REOPENED",
+      );
+      publishOrderReady(order);
+      res.json({ data: order });
+    }),
+  );
+
+  app.post(
     "/api/orders/:orderId/cooking",
     kitchenOnly,
     asyncHandler(async (req, res) => {
@@ -504,6 +554,22 @@ export function createApp() {
         ["ACCEPTED"],
         "COOKING",
         "ORDER_COOKING",
+      );
+      publishOrderUpdated(order);
+      res.json({ data: order });
+    }),
+  );
+
+  app.post(
+    "/api/orders/:orderId/reopen-cooking",
+    kitchenOnly,
+    asyncHandler(async (req, res) => {
+      const orderId = uuidParamSchema.parse(req.params.orderId);
+      const order = await transitionOrderStatus(
+        orderId,
+        ["READY"],
+        "COOKING",
+        "ORDER_REOPENED",
       );
       publishOrderUpdated(order);
       res.json({ data: order });

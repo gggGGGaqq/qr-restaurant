@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ChefHat, Flame, Inbox } from "lucide-react";
-import { listKitchenOrders, normalizeOrder, orderAction } from "./api";
+import { listKitchenOrderHistory, listKitchenOrders, normalizeOrder, orderAction } from "./api";
 import { DashboardShell } from "./components/DashboardShell";
 import { OrderCard } from "./components/OrderCard";
 import { Skeleton } from "./components/Skeleton";
@@ -25,6 +25,13 @@ export function KitchenDashboard() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
+  const historySyncInFlightRef = useRef(false);
+  const historyOpenRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const screenCopy = useMemo(
     () =>
@@ -44,6 +51,12 @@ export function KitchenDashboard() {
           noOrders: "Ас үйге арналған тапсырыстар жоқ.",
           nothingCooking: "Қазір ештеңе дайындалып жатқан жоқ.",
           kitchenNotice: (tableNumber: string) => `Ас үйге жаңа тапсырыс: ${tableNumber}-үстел`,
+          history: "Тарих",
+          showHistory: "Тарихты ашу",
+          hideHistory: "Тарихты жабу",
+          historyEmpty: "Дайын немесе жабылған тапсырыстар жоқ.",
+          restoreOrder: "Дайындауға қайтару",
+          restoredNotice: (orderId: string) => `Тапсырыс ${orderId.slice(0, 8)} қайта дайындалуда`,
         }
         : {
           title: "Кухня",
@@ -60,9 +73,54 @@ export function KitchenDashboard() {
           noOrders: "Нет заказов для кухни.",
           nothingCooking: "Сейчас ничего не готовится.",
           kitchenNotice: (tableNumber: string) => `Новый заказ на кухню: стол ${tableNumber}`,
+          history: "История",
+          showHistory: "Открыть историю",
+          hideHistory: "Закрыть историю",
+          historyEmpty: "Готовых или закрытых заказов пока нет.",
+          restoreOrder: "Вернуть в готовку",
+          restoredNotice: (orderId: string) => `Заказ ${orderId.slice(0, 8)} снова в готовке`,
         },
     [copy.common.activeShift, language],
   );
+
+  const syncHistory = useCallback(
+    async (options: { showLoader?: boolean } = {}) => {
+      if (historySyncInFlightRef.current) return;
+      historySyncInFlightRef.current = true;
+
+      if (options.showLoader) {
+        setHistoryLoading(true);
+      }
+
+      try {
+        const historyData = await listKitchenOrderHistory();
+        if (!isMountedRef.current) return;
+        setHistoryOrders(historyData);
+      } catch {
+        if (!isMountedRef.current) return;
+        setError(screenCopy.loadError);
+      } finally {
+        historySyncInFlightRef.current = false;
+        if (isMountedRef.current && options.showLoader) {
+          setHistoryLoading(false);
+        }
+      }
+    },
+    [screenCopy.loadError],
+  );
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    historyOpenRef.current = historyOpen;
+    if (historyOpen) {
+      void syncHistory({ showLoader: true });
+    }
+  }, [historyOpen, syncHistory]);
 
   useEffect(() => {
     let active = true;
@@ -104,13 +162,18 @@ export function KitchenDashboard() {
       upsertIfStatus(order, [...kitchenStatuses]);
       setNotice(screenCopy.kitchenNotice(order.tableNumber));
     });
-    socket.on("order_updated", (rawOrder) => upsertIfStatus(normalizeOrder(rawOrder), [...kitchenStatuses]));
+    socket.on("order_updated", (rawOrder) => {
+      upsertIfStatus(normalizeOrder(rawOrder), [...kitchenStatuses]);
+      if (historyOpenRef.current) {
+        void syncHistory();
+      }
+    });
 
     return () => {
       active = false;
       socket.disconnect();
     };
-  }, [replaceAll, screenCopy, upsertIfStatus]);
+  }, [replaceAll, screenCopy, syncHistory, upsertIfStatus]);
 
   useEffect(() => {
     if (!notice) return;
@@ -130,8 +193,26 @@ export function KitchenDashboard() {
     setBusyId(order.id);
     try {
       upsertIfStatus(await orderAction(order.id, action), [...kitchenStatuses]);
+      if (historyOpenRef.current) {
+        void syncHistory();
+      }
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function restoreHistoryOrder(order: Order) {
+    if (order.status !== "READY") return;
+
+    setHistoryBusyId(order.id);
+    try {
+      const restored = await orderAction(order.id, "reopen-cooking");
+      upsertIfStatus(restored, [...kitchenStatuses]);
+      setHistoryOrders((current) => current.filter((item) => item.id !== restored.id));
+      setNotice(screenCopy.restoredNotice(restored.id));
+      void syncHistory();
+    } finally {
+      setHistoryBusyId(null);
     }
   }
 
@@ -168,6 +249,40 @@ export function KitchenDashboard() {
           <span>{screenCopy.total}</span>
           <strong>{orders.length}</strong>
         </div>
+      </section>
+
+      <section className="order-history-section">
+        <div className="section-title-row">
+          <h2>{screenCopy.history}</h2>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => setHistoryOpen((current) => !current)}
+          >
+            {historyOpen ? screenCopy.hideHistory : screenCopy.showHistory}
+          </button>
+        </div>
+
+        {historyOpen && (
+          historyLoading ? (
+            <Skeleton className="dashboard-skeleton" />
+          ) : historyOrders.length === 0 ? (
+            <p className="empty-state">{screenCopy.historyEmpty}</p>
+          ) : (
+            <div className="order-history-grid">
+              {historyOrders.map((order) => (
+                <div className={historyBusyId === order.id ? "is-busy" : ""} key={order.id}>
+                  <OrderCard
+                    order={order}
+                    variant="kitchen"
+                    restoreLabel={screenCopy.restoreOrder}
+                    onRestore={order.status === "READY" ? (next) => void restoreHistoryOrder(next) : undefined}
+                  />
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </section>
 
       {loading ? (

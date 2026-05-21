@@ -16,6 +16,8 @@ interface OrderCardProps {
   onCooking?: (order: Order) => void;
   onReady?: (order: Order) => void;
   onComplete?: (order: Order) => void;
+  onRestore?: (order: Order) => void;
+  restoreLabel?: string;
 }
 
 export function OrderCard({
@@ -28,6 +30,8 @@ export function OrderCard({
   onCooking,
   onReady,
   onComplete,
+  onRestore,
+  restoreLabel,
 }: OrderCardProps) {
   const { language, copy } = useLanguage();
   const age = formatOrderAge(order.createdAt, nowTimestamp, language);
@@ -153,6 +157,20 @@ export function OrderCard({
                 <ChefHat size={18} /> {copy.common.markReady}
               </button>
             )}
+          </motion.div>
+        )}
+
+        {onRestore && (
+          <motion.div
+            key="restore-actions"
+            className="action-row"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            <button className="button button-secondary" onClick={() => onRestore(order)} title={restoreLabel ?? copy.common.open}>
+              <Check size={18} /> {restoreLabel ?? copy.common.open}
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
