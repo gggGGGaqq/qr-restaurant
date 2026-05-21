@@ -354,6 +354,7 @@ export function CustomerApp() {
   const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
   const [addFeedback, setAddFeedback] = useState<AddFeedbackAnimation | null>(null);
   const [cartPulseKey, setCartPulseKey] = useState(0);
+  const [orderCooldownUntil, setOrderCooldownUntil] = useState<number | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasTableContext = isCustomerRouteOpen(customerRoute);
 
@@ -572,17 +573,9 @@ export function CustomerApp() {
   );
   const ordersServiceFee = ordersSubtotal * settings.serviceRate;
   const ordersTotal = ordersSubtotal + ordersServiceFee;
-  const lastOrderCreatedAt = useMemo(
-    () =>
-      orders.reduce((latest, order) => {
-        const createdAt = Date.parse(order.createdAt);
-        return Number.isFinite(createdAt) ? Math.max(latest, createdAt) : latest;
-      }, 0),
-    [orders],
-  );
   const orderCooldownRemainingSeconds =
-    lastOrderCreatedAt > 0
-      ? Math.max(0, Math.ceil((lastOrderCreatedAt + ORDER_COOLDOWN_MS - nowTimestamp) / 1000))
+    orderCooldownUntil !== null
+      ? Math.max(0, Math.ceil((orderCooldownUntil - nowTimestamp) / 1000))
       : 0;
   const orderCooldownActive = orderCooldownRemainingSeconds > 0;
   const orderCooldownMessage = orderCooldownActive
@@ -624,6 +617,7 @@ export function CustomerApp() {
       setMenu([]);
       setOrders([]);
       setError(null);
+      setOrderCooldownUntil(null);
       setLoading(false);
       getSettings().then(setSettings).catch(() => undefined);
       return;
@@ -862,6 +856,7 @@ export function CustomerApp() {
           modifierIds: line.modifierIds,
         })),
       });
+      setOrderCooldownUntil(Date.now() + ORDER_COOLDOWN_MS);
       setOrders((current) => [order, ...current.filter((item) => item.id !== order.id)]);
       setCart([]);
       setOrderNote("");
@@ -869,6 +864,12 @@ export function CustomerApp() {
       setOrdersOpen(true);
       setLastActionText(screenCopy.orderSent);
     } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 429) {
+        const retryAfterSeconds = getRetryAfterSeconds(requestError);
+        if (retryAfterSeconds) {
+          setOrderCooldownUntil(Date.now() + retryAfterSeconds * 1000);
+        }
+      }
       setError(formatError(requestError));
     } finally {
       setPlacing(false);
