@@ -4,9 +4,7 @@ import QRCode from "qrcode";
 import {
   Copy,
   Download,
-  ExternalLink,
   ImagePlus,
-  LayoutDashboard,
   Palette,
   Plus,
   Power,
@@ -41,7 +39,7 @@ import { menuCategories } from "./menu";
 import type { MenuCategory, MenuItem, MenuModifier, RestaurantSettings, Table } from "./types";
 import { formatMoney } from "./utils/format";
 
-type AdminTab = "overview" | "menu" | "tables" | "branding";
+type AdminTab = "menu" | "tables" | "branding";
 type MenuStatusFilter = "all" | "active" | "inactive";
 type MenuSort = "active-first" | "name" | "price-high" | "price-low";
 type MenuCategoryFilter = "all" | MenuCategory;
@@ -56,7 +54,6 @@ interface DraftModifier {
 
 interface AdminScreenCopy {
   title: string;
-  overview: string;
   menu: string;
   tables: string;
   branding: string;
@@ -66,12 +63,11 @@ interface AdminScreenCopy {
   summaryModifiers: string;
   summaryTables: string;
   refreshScreen: string;
-  editMenu: string;
-  manageTables: string;
-  setupBrand: string;
-  focusPhotos: string;
-  focusStopList: string;
-  focusTables: string;
+  quickCategories: string;
+  allCategories: string;
+  editItem: string;
+  closeEditor: string;
+  itemEditor: string;
   menuBuilder: string;
   brandStudio: string;
   livePreview: string;
@@ -105,7 +101,6 @@ interface AdminScreenCopy {
   sortName: string;
   sortPriceHigh: string;
   sortPriceLow: string;
-  categoryFilter: string;
   foundItems: (filtered: number, total: number) => string;
   noItems: string;
   save: string;
@@ -125,10 +120,8 @@ interface AdminScreenCopy {
   draftModifiers: string;
   remove: string;
   availableNow: string;
-  guestEntry: string;
   copyLink: string;
   downloadQr: string;
-  linkLabel: string;
   saveTable: string;
   restaurantName: string;
   accentColor: string;
@@ -522,6 +515,7 @@ function MenuItemCard({
   const [saving, setSaving] = useState(false);
   const [creatingModifier, setCreatingModifier] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
     setDraft({
@@ -651,6 +645,33 @@ function MenuItemCard({
           <span>{item.description ?? screenCopy.descriptionPlaceholder}</span>
         </div>
 
+        <div className="admin-item-card__quick-actions">
+          <button
+            className={`button ${item.active ? "button-secondary" : "button-primary"}`}
+            type="button"
+            onClick={() => void handleToggleActive()}
+            disabled={saving || !canSubmit}
+          >
+            <Power size={16} />
+            {item.active ? screenCopy.moveToStopList : screenCopy.restore}
+          </button>
+
+          <button
+            className={`button ${editorOpen ? "button-secondary" : "button-primary"}`}
+            type="button"
+            onClick={() => setEditorOpen((current) => !current)}
+          >
+            {editorOpen ? screenCopy.closeEditor : screenCopy.editItem}
+          </button>
+        </div>
+
+        {editorOpen && (
+          <div className="admin-item-card__editor">
+            <div className="section-title-row">
+              <h4>{screenCopy.itemEditor}</h4>
+              <span>{categoryOptions.find((option) => option.id === item.category)?.label ?? item.category}</span>
+            </div>
+
         <div className="admin-form-grid admin-form-grid--item">
           <label className="admin-field">
             <span>{screenCopy.category}</span>
@@ -712,16 +733,6 @@ function MenuItemCard({
         />
 
         <div className="admin-item-card__actions">
-          <button
-            className={`button ${item.active ? "button-secondary" : "button-primary"}`}
-            type="button"
-            onClick={() => void handleToggleActive()}
-            disabled={saving || !canSubmit}
-          >
-            <Power size={16} />
-            {item.active ? screenCopy.moveToStopList : screenCopy.restore}
-          </button>
-
           <button
             className="button button-secondary"
             type="button"
@@ -812,6 +823,8 @@ function MenuItemCard({
             </button>
           </form>
         </section>
+          </div>
+        )}
       </div>
     </motion.article>
   );
@@ -822,7 +835,6 @@ function TableCard({
   qrCode,
   entryUrl,
   screenCopy,
-  openLabel,
   onSave,
   onCopyLink,
 }: {
@@ -830,7 +842,6 @@ function TableCard({
   qrCode?: string;
   entryUrl: string;
   screenCopy: AdminScreenCopy;
-  openLabel: string;
   onSave: (id: number, input: Partial<Pick<Table, "number">>) => Promise<void>;
   onCopyLink: (url: string) => Promise<void>;
 }) {
@@ -865,10 +876,9 @@ function TableCard({
       <div className="admin-table-card__body">
         <div className="admin-table-card__header">
           <div>
-            <p className="eyebrow">{screenCopy.guestEntry}</p>
             <h3>{table.number}</h3>
           </div>
-          <span className="soft-pill">ID {table.id}</span>
+          <span className="soft-pill">QR</span>
         </div>
 
         <label className="admin-field">
@@ -876,21 +886,11 @@ function TableCard({
           <input value={number} onChange={(event) => setNumber(event.target.value)} />
         </label>
 
-        <label className="admin-field">
-          <span>{screenCopy.linkLabel}</span>
-          <input value={entryUrl} readOnly />
-        </label>
-
         <div className="admin-table-card__actions">
           <button className="button button-secondary" type="button" onClick={() => void onCopyLink(entryUrl)}>
             <Copy size={16} />
             {screenCopy.copyLink}
           </button>
-
-          <a className="button button-secondary" href={entryUrl} target="_blank" rel="noreferrer">
-            <ExternalLink size={16} />
-            {openLabel}
-          </a>
 
           {qrCode && (
             <a className="button button-secondary" href={qrCode} download={`table-${table.number}-qr.png`}>
@@ -952,7 +952,6 @@ export function AdminDashboard() {
       language === "kk"
         ? {
             title: "Әкімші панелі",
-            overview: "Шолу",
             menu: "Мәзір",
             tables: "Үстелдер",
             branding: "Бренд",
@@ -962,12 +961,11 @@ export function AdminDashboard() {
             summaryModifiers: "Модификаторлар",
             summaryTables: "Үстелдер",
             refreshScreen: "Жаңарту",
-            editMenu: "Мәзірді өңдеу",
-            manageTables: "Үстелдерді ашу",
-            setupBrand: "Брендті баптау",
-            focusPhotos: "Фотосыз позициялар",
-            focusStopList: "Стоп-парақтағы тағамдар",
-            focusTables: "Жүйедегі үстелдер",
+            quickCategories: "Жылдам сүзгі",
+            allCategories: "Барлық санаттар",
+            editItem: "Өңдеу",
+            closeEditor: "Жинау",
+            itemEditor: "Позицияны өңдеу",
             menuBuilder: "Жаңа тағам қосу",
             brandStudio: "Бренд баптауы",
             livePreview: "Тікелей алдын ала қарау",
@@ -1001,7 +999,6 @@ export function AdminDashboard() {
             sortName: "Атауы бойынша",
             sortPriceHigh: "Алдымен қымбат",
             sortPriceLow: "Алдымен арзан",
-            categoryFilter: "Санат сүзгісі",
             foundItems: (filtered: number, total: number) => `${filtered} / ${total} позиция`,
             noItems: "Бұл сүзгіге сай позиция табылмады.",
             save: copy.common.save,
@@ -1021,10 +1018,8 @@ export function AdminDashboard() {
             draftModifiers: "Жаңа позиция модификаторлары",
             remove: "Өшіру",
             availableNow: copy.common.available,
-            guestEntry: "Қонаққа кіру",
             copyLink: "Сілтемені көшіру",
             downloadQr: "QR жүктеу",
-            linkLabel: "Кіру сілтемесі",
             saveTable: "Үстелді сақтау",
             restaurantName: "Мейрамхана атауы",
             accentColor: "Акцент түсі",
@@ -1045,7 +1040,6 @@ export function AdminDashboard() {
           }
         : {
             title: "Админ-панель",
-            overview: "Обзор",
             menu: "Меню",
             tables: "Столы",
             branding: "Бренд",
@@ -1055,12 +1049,11 @@ export function AdminDashboard() {
             summaryModifiers: "Модификаторы",
             summaryTables: "Столы",
             refreshScreen: "Обновить",
-            editMenu: "Править меню",
-            manageTables: "Открыть столы",
-            setupBrand: "Настроить бренд",
-            focusPhotos: "позиций без фото",
-            focusStopList: "позиций в стоп-листе",
-            focusTables: "столов в системе",
+            quickCategories: "Быстрые фильтры",
+            allCategories: "Все категории",
+            editItem: "Редактировать",
+            closeEditor: "Свернуть",
+            itemEditor: "Редактирование позиции",
             menuBuilder: "Добавление новых блюд",
             brandStudio: "Настройки бренда",
             livePreview: "Живой предпросмотр",
@@ -1094,7 +1087,6 @@ export function AdminDashboard() {
             sortName: "По названию",
             sortPriceHigh: "Сначала дорогие",
             sortPriceLow: "Сначала дешёвые",
-            categoryFilter: "Фильтр категории",
             foundItems: (filtered: number, total: number) => `Найдено ${filtered} из ${total}`,
             noItems: "По текущему фильтру ничего не найдено.",
             save: copy.common.save,
@@ -1114,10 +1106,8 @@ export function AdminDashboard() {
             draftModifiers: "Модификаторы для нового блюда",
             remove: "Удалить",
             availableNow: copy.common.available,
-            guestEntry: "Вход для гостя",
             copyLink: "Копировать ссылку",
             downloadQr: "Скачать QR",
-            linkLabel: "Ссылка входа",
             saveTable: "Сохранить стол",
             restaurantName: "Название ресторана",
             accentColor: "Акцентный цвет",
@@ -1510,7 +1500,6 @@ export function AdminDashboard() {
   }
 
   const tabs: Array<{ id: AdminTab; label: string; icon: ReactNode }> = [
-    { id: "overview", label: screenCopy.overview, icon: <LayoutDashboard size={16} /> },
     { id: "menu", label: screenCopy.menu, icon: <UtensilsCrossed size={16} /> },
     { id: "tables", label: screenCopy.tables, icon: <QrCode size={16} /> },
     { id: "branding", label: screenCopy.branding, icon: <Palette size={16} /> },
@@ -1564,25 +1553,6 @@ export function AdminDashboard() {
             />
           </section>
 
-          <section className="admin-command-bar">
-            <button className="button button-primary" type="button" onClick={() => setCurrentTab("menu")}>
-              <UtensilsCrossed size={16} />
-              {screenCopy.editMenu}
-            </button>
-            <button className="button button-secondary" type="button" onClick={() => setCurrentTab("tables")}>
-              <QrCode size={16} />
-              {screenCopy.manageTables}
-            </button>
-            <button className="button button-secondary" type="button" onClick={() => setCurrentTab("branding")}>
-              <Palette size={16} />
-              {screenCopy.setupBrand}
-            </button>
-            <button className="button button-secondary" type="button" onClick={() => void loadDashboard()}>
-              <RefreshCw size={16} />
-              {screenCopy.refreshScreen}
-            </button>
-          </section>
-
           <section className="admin-tabbar" aria-label={screenCopy.title}>
             {tabs.map((tab) => (
               <button
@@ -1595,60 +1565,90 @@ export function AdminDashboard() {
                 <span>{tab.label}</span>
               </button>
             ))}
+            <button className="admin-tab admin-tab--refresh" type="button" onClick={() => void loadDashboard()}>
+              <RefreshCw size={16} />
+              <span>{screenCopy.refreshScreen}</span>
+            </button>
           </section>
 
-          {currentTab === "overview" && (
-            <div className="admin-overview-grid">
-              <section className="admin-panel admin-panel--feature">
-                <div className="section-title-row">
-                  <h2>{screenCopy.overview}</h2>
-                  <span>{menu.length}</span>
+          {currentTab === "menu" && (
+            <div className="admin-menu-workbench">
+              <section className="admin-panel admin-panel--dense admin-menu-controls">
+                <div className="admin-toolbar">
+                  <div className="search-box admin-search">
+                    <Search size={16} />
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder={screenCopy.searchPlaceholder}
+                    />
+                  </div>
+
+                  <div className="admin-filter-row admin-filter-row--menu">
+                    <div className="admin-segmented-control">
+                      <button
+                        type="button"
+                        className={menuStatusFilter === "all" ? "is-active" : ""}
+                        onClick={() => setMenuStatusFilter("all")}
+                      >
+                        {screenCopy.all}
+                      </button>
+                      <button
+                        type="button"
+                        className={menuStatusFilter === "active" ? "is-active" : ""}
+                        onClick={() => setMenuStatusFilter("active")}
+                      >
+                        {screenCopy.active}
+                      </button>
+                      <button
+                        type="button"
+                        className={menuStatusFilter === "inactive" ? "is-active" : ""}
+                        onClick={() => setMenuStatusFilter("inactive")}
+                      >
+                        {screenCopy.inactive}
+                      </button>
+                    </div>
+
+                    <label className="admin-select">
+                      <span>{screenCopy.sort}</span>
+                      <select value={menuSort} onChange={(event) => setMenuSort(event.target.value as MenuSort)}>
+                        <option value="active-first">{screenCopy.sortActiveFirst}</option>
+                        <option value="name">{screenCopy.sortName}</option>
+                        <option value="price-high">{screenCopy.sortPriceHigh}</option>
+                        <option value="price-low">{screenCopy.sortPriceLow}</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
 
-                <div className="admin-insight-list">
-                  <div>
-                    <strong>{menuMetrics.itemsWithoutImage}</strong>
-                    <p>{screenCopy.focusPhotos}</p>
-                  </div>
-                  <div>
-                    <strong>{menuMetrics.inactiveItems}</strong>
-                    <p>{screenCopy.focusStopList}</p>
-                  </div>
-                  <div>
-                    <strong>{tables.length}</strong>
-                    <p>{screenCopy.focusTables}</p>
-                  </div>
-                </div>
-              </section>
+                <div className="admin-category-strip" aria-label={screenCopy.quickCategories}>
+                  <button
+                    type="button"
+                    className={`admin-category-button ${menuCategoryFilter === "all" ? "is-active" : ""}`}
+                    onClick={() => setMenuCategoryFilter("all")}
+                  >
+                    <span>{screenCopy.allCategories}</span>
+                    <strong>{menu.length}</strong>
+                  </button>
 
-              <section className="admin-panel admin-panel--feature">
-                <div className="section-title-row">
-                  <h2>{screenCopy.menu}</h2>
-                  <span>{categorySnapshot.length}</span>
-                </div>
-                <div className="admin-chip-cloud">
                   {categorySnapshot.map((category) => (
                     <button
                       key={category.id}
                       type="button"
-                      className="admin-chip-button"
-                      onClick={() => {
-                        setMenuCategoryFilter(category.id);
-                        setCurrentTab("menu");
-                      }}
+                      className={`admin-category-button ${menuCategoryFilter === category.id ? "is-active" : ""}`}
+                      onClick={() => setMenuCategoryFilter(category.id)}
                     >
                       <span>{category.label}</span>
                       <strong>{category.count}</strong>
                     </button>
                   ))}
                 </div>
-              </section>
-            </div>
-          )}
 
-          {currentTab === "menu" && (
-            <div className="admin-section-stack">
-              <div className="admin-creation-grid">
+                <span className="soft-pill">{screenCopy.foundItems(filteredMenu.length, menu.length)}</span>
+              </section>
+
+              <div className="admin-menu-layout">
+                <div className="admin-creation-grid">
                 <form className="admin-creation-card admin-creation-card--menu" onSubmit={(event) => void submitNewItem(event)}>
                   <div className="section-title-row">
                     <div>
@@ -1837,73 +1837,7 @@ export function AdminDashboard() {
 
               </div>
 
-              <section className="admin-panel admin-panel--dense">
-                <div className="admin-toolbar">
-                  <div className="search-box admin-search">
-                    <Search size={16} />
-                    <input
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder={screenCopy.searchPlaceholder}
-                    />
-                  </div>
-
-                  <div className="admin-filter-row">
-                    <div className="admin-segmented-control">
-                      <button
-                        type="button"
-                        className={menuStatusFilter === "all" ? "is-active" : ""}
-                        onClick={() => setMenuStatusFilter("all")}
-                      >
-                        {screenCopy.all}
-                      </button>
-                      <button
-                        type="button"
-                        className={menuStatusFilter === "active" ? "is-active" : ""}
-                        onClick={() => setMenuStatusFilter("active")}
-                      >
-                        {screenCopy.active}
-                      </button>
-                      <button
-                        type="button"
-                        className={menuStatusFilter === "inactive" ? "is-active" : ""}
-                        onClick={() => setMenuStatusFilter("inactive")}
-                      >
-                        {screenCopy.inactive}
-                      </button>
-                    </div>
-
-                    <label className="admin-select">
-                      <span>{screenCopy.categoryFilter}</span>
-                      <select
-                        value={menuCategoryFilter}
-                        onChange={(event) => setMenuCategoryFilter(event.target.value as MenuCategoryFilter)}
-                      >
-                        <option value="all">{screenCopy.all}</option>
-                        {categoryOptions.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="admin-select">
-                      <span>{screenCopy.sort}</span>
-                      <select value={menuSort} onChange={(event) => setMenuSort(event.target.value as MenuSort)}>
-                        <option value="active-first">{screenCopy.sortActiveFirst}</option>
-                        <option value="name">{screenCopy.sortName}</option>
-                        <option value="price-high">{screenCopy.sortPriceHigh}</option>
-                        <option value="price-low">{screenCopy.sortPriceLow}</option>
-                      </select>
-                    </label>
-                  </div>
-                </div>
-
-                <span className="soft-pill">{screenCopy.foundItems(filteredMenu.length, menu.length)}</span>
-              </section>
-
-              <section className="admin-item-list">
+              <section className="admin-item-list admin-item-list--catalog">
                 {filteredMenu.length > 0 ? (
                   filteredMenu.map((item) => (
                     <MenuItemCard
@@ -1922,6 +1856,7 @@ export function AdminDashboard() {
                   <div className="empty-state">{screenCopy.noItems}</div>
                 )}
               </section>
+              </div>
             </div>
           )}
 
@@ -1961,7 +1896,6 @@ export function AdminDashboard() {
                     qrCode={qrCodes[table.id]}
                     entryUrl={`${baseUrl}/table/${table.id}`}
                     screenCopy={screenCopy}
-                    openLabel={copy.common.open}
                     onSave={saveTableNumber}
                     onCopyLink={handleCopyLink}
                   />
