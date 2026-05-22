@@ -4,10 +4,9 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  BarChart3,
-  CalendarDays,
   ChefHat,
   CircleDollarSign,
+  CalendarDays,
   Clock3,
   Flame,
   ReceiptText,
@@ -1050,7 +1049,7 @@ export function OwnerDashboard() {
           {loading && <span className="owner-refresh-pill">{screenCopy.loading}</span>}
           {!hasOrders && <p className="empty-state owner-empty-banner">{screenCopy.empty}</p>}
 
-          <section className="owner-kpi-grid" aria-label="KPI">
+          <section className="owner-kpi-grid owner-kpi-grid--primary" aria-label="KPI">
             <KpiCard
               title={screenCopy.totalRevenue}
               value={formatMoney(summary.totalRevenue, language)}
@@ -1064,24 +1063,9 @@ export function OwnerDashboard() {
               icon={<CalendarDays size={21} />}
             />
             <KpiCard
-              title={screenCopy.revenueThisWeek}
-              value={formatMoney(summary.revenueThisWeek, language)}
-              icon={<BarChart3 size={21} />}
-            />
-            <KpiCard
-              title={screenCopy.revenueThisMonth}
-              value={formatMoney(summary.revenueThisMonth, language)}
-              icon={<Sparkles size={21} />}
-            />
-            <KpiCard
               title={screenCopy.totalOrders}
               value={formatNumber(summary.totalOrders, language)}
               icon={<ReceiptText size={21} />}
-            />
-            <KpiCard
-              title={screenCopy.ordersToday}
-              value={formatNumber(summary.ordersToday, language)}
-              icon={<Clock3 size={21} />}
             />
             <KpiCard
               title={screenCopy.averageOrder}
@@ -1108,11 +1092,6 @@ export function OwnerDashboard() {
               tone="success"
             />
             <KpiCard
-              title={screenCopy.serviceFee}
-              value={formatMoney(summary.serviceFeeTotal, language)}
-              icon={<CircleDollarSign size={21} />}
-            />
-            <KpiCard
               title={screenCopy.mostPopular}
               value={
                 summary.mostPopularDish
@@ -1122,27 +1101,38 @@ export function OwnerDashboard() {
               note={summary.mostPopularDish ? `${formatNumber(summary.mostPopularDish.qty, language)} ${screenCopy.items}` : undefined}
               icon={<Utensils size={21} />}
             />
-            <KpiCard
-              title={screenCopy.leastPopular}
-              value={
-                summary.leastPopularDish
-                  ? localizeMenuItemName({ id: summary.leastPopularDish.menuItemId, name: summary.leastPopularDish.name }, language)
-                  : screenCopy.none
-              }
-              note={summary.leastPopularDish ? `${formatNumber(summary.leastPopularDish.qty, language)} ${screenCopy.items}` : undefined}
-              icon={<ChefHat size={21} />}
-            />
           </section>
 
-          <section className="owner-section-grid owner-section-grid--sales">
-            <BarChart
-              title={screenCopy.salesDay}
-              subtitle={rangeLabel(range, language)}
-              data={dailyChartData}
-              emptyLabel={screenCopy.noChartData}
-              formatValue={(value) => formatMoney(value, language)}
-            />
-            <div className="owner-side-stack">
+          <section className="owner-main-analytics" aria-label={screenCopy.salesDay}>
+            <div className="owner-main-column">
+              <BarChart
+                title={screenCopy.salesDay}
+                subtitle={rangeLabel(range, language)}
+                data={dailyChartData}
+                emptyLabel={screenCopy.noChartData}
+                formatValue={(value) => formatMoney(value, language)}
+              />
+              <div className="owner-chart-pair">
+                <ProgressList
+                  title={screenCopy.categoryRevenue}
+                  rows={filteredCategoryRows}
+                  emptyLabel={screenCopy.noMenuData}
+                />
+                <ProgressList
+                  title={screenCopy.ordersByCategory}
+                  rows={ordersByCategoryRows}
+                  emptyLabel={screenCopy.noMenuData}
+                />
+              </div>
+              <BarChart
+                compact
+                title={screenCopy.ordersByHour}
+                data={orderHourData}
+                emptyLabel={screenCopy.empty}
+                formatValue={(value) => formatNumber(value, language)}
+              />
+            </div>
+            <aside className="owner-sidebar-column">
               <section className="owner-panel">
                 <div className="section-title-row">
                   <h2>{screenCopy.comparisons}</h2>
@@ -1151,6 +1141,75 @@ export function OwnerDashboard() {
                   <ComparisonCard title={screenCopy.todayVsYesterday} comparison={sales.todayVsYesterday} language={language} />
                   <ComparisonCard title={screenCopy.weekVsWeek} comparison={sales.thisWeekVsPreviousWeek} language={language} />
                   <ComparisonCard title={screenCopy.monthVsMonth} comparison={sales.thisMonthVsPreviousMonth} language={language} />
+                </div>
+              </section>
+              <section className="owner-panel owner-panel--compact">
+                <div className="section-title-row">
+                  <h2>{screenCopy.totalRevenue}</h2>
+                </div>
+                <div className="owner-stat-list owner-stat-list--single">
+                  <div>
+                    <span>{screenCopy.revenueThisWeek}</span>
+                    <strong>{formatMoney(summary.revenueThisWeek, language)}</strong>
+                  </div>
+                  <div>
+                    <span>{screenCopy.revenueThisMonth}</span>
+                    <strong>{formatMoney(summary.revenueThisMonth, language)}</strong>
+                  </div>
+                  <div>
+                    <span>{screenCopy.ordersToday}</span>
+                    <strong>{formatNumber(summary.ordersToday, language)}</strong>
+                  </div>
+                  <div>
+                    <span>{screenCopy.serviceFee}</span>
+                    <strong>{formatMoney(summary.serviceFeeTotal, language)}</strong>
+                  </div>
+                  <div>
+                    <span>{screenCopy.leastPopular}</span>
+                    <strong>
+                      {summary.leastPopularDish
+                        ? localizeMenuItemName({ id: summary.leastPopularDish.menuItemId, name: summary.leastPopularDish.name }, language)
+                        : screenCopy.none}
+                    </strong>
+                  </div>
+                </div>
+              </section>
+              <section className="owner-panel owner-panel--compact">
+                <div className="section-title-row">
+                  <h2>{screenCopy.peakHours}</h2>
+                </div>
+                <div className="owner-stat-list owner-stat-list--single">
+                  <div>
+                    <span>{screenCopy.averageOrdersPerDay}</span>
+                    <strong>{formatNumber(orders.averageOrdersPerDay, language)}</strong>
+                  </div>
+                  <div>
+                    <span>{screenCopy.processingTime}</span>
+                    <strong>{formatDuration(orders.averageProcessingSeconds, language)}</strong>
+                  </div>
+                  <div>
+                    <span>{screenCopy.acceptanceTime}</span>
+                    <strong>{formatDuration(orders.averageAcceptanceSeconds, language)}</strong>
+                  </div>
+                  <div>
+                    <span>{screenCopy.kitchenTime}</span>
+                    <strong>{formatDuration(orders.averageKitchenPreparationSeconds, language)}</strong>
+                  </div>
+                  <div>
+                    <span>{screenCopy.rejectedPercent}</span>
+                    <strong>{formatPercent(orders.rejectedOrderPercentage, language)}</strong>
+                  </div>
+                </div>
+                <div className="owner-peak-hours">
+                  {orders.peakHours.length === 0 ? (
+                    <p className="empty-state">{screenCopy.empty}</p>
+                  ) : (
+                    orders.peakHours.map((item) => (
+                      <span className="soft-pill" key={item.hour}>
+                        {String(item.hour).padStart(2, "0")}:00 В· {item.count}
+                      </span>
+                    ))
+                  )}
                 </div>
               </section>
               <BarChart
@@ -1167,23 +1226,35 @@ export function OwnerDashboard() {
                 emptyLabel={screenCopy.noChartData}
                 formatValue={(value) => formatMoney(value, language)}
               />
-            </div>
+              <DishList
+                title={screenCopy.topDishes}
+                dishes={menu.topSellingDishes}
+                emptyLabel={screenCopy.noMenuData}
+                language={language}
+              />
+              <DishList
+                title={screenCopy.slowDishes}
+                dishes={menu.worstSellingDishes}
+                emptyLabel={screenCopy.noMenuData}
+                language={language}
+              />
+              <NeverOrderedList
+                title={screenCopy.neverOrdered}
+                items={filteredNeverOrdered}
+                emptyLabel={screenCopy.noMenuData}
+                language={language}
+                categoryLabels={copy.categories}
+              />
+            </aside>
           </section>
 
-          <section className="owner-section-grid">
+          <section className="owner-section-grid owner-section-grid--orders">
             <ProgressList
               title={screenCopy.ordersByStatus}
               rows={filteredStatusRows}
               emptyLabel={screenCopy.empty}
             />
-            <BarChart
-              compact
-              title={screenCopy.ordersByHour}
-              data={orderHourData}
-              emptyLabel={screenCopy.empty}
-              formatValue={(value) => formatNumber(value, language)}
-            />
-            <section className="owner-panel">
+            <section className="owner-panel owner-panel--duplicate">
               <div className="section-title-row">
                 <h2>{screenCopy.peakHours}</h2>
               </div>
@@ -1221,26 +1292,6 @@ export function OwnerDashboard() {
                 )}
               </div>
             </section>
-          </section>
-
-          <section className="owner-section-grid">
-            <DishList
-              title={screenCopy.topDishes}
-              dishes={menu.topSellingDishes}
-              emptyLabel={screenCopy.noMenuData}
-              language={language}
-            />
-            <DishList
-              title={screenCopy.slowDishes}
-              dishes={menu.worstSellingDishes}
-              emptyLabel={screenCopy.noMenuData}
-              language={language}
-            />
-            <ProgressList
-              title={screenCopy.categoryRevenue}
-              rows={filteredCategoryRows}
-              emptyLabel={screenCopy.noMenuData}
-            />
           </section>
 
           <section className="owner-section-heading">
@@ -1303,13 +1354,6 @@ export function OwnerDashboard() {
               emptyLabel={screenCopy.noMenuData}
               language={language}
               valueLabel={screenCopy.totalRevenue}
-              categoryLabels={copy.categories}
-            />
-            <NeverOrderedList
-              title={screenCopy.neverOrdered}
-              items={filteredNeverOrdered}
-              emptyLabel={screenCopy.noMenuData}
-              language={language}
               categoryLabels={copy.categories}
             />
             <section className="owner-panel">
