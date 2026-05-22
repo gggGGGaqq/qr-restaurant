@@ -9,7 +9,16 @@ import { createRoleSession, requireRole, verifyRolePassword } from "./auth";
 import { config } from "./config";
 import { pingDatabase } from "./db";
 import { HttpError } from "./errors";
-import { menuCategories } from "./types";
+import {
+  getOwnerAnalyticsMenu,
+  getOwnerAnalyticsOperations,
+  getOwnerAnalyticsOrders,
+  getOwnerAnalyticsSales,
+  getOwnerAnalyticsSummary,
+  getOwnerAnalyticsTables,
+  resolveOwnerAnalyticsRange,
+} from "./ownerAnalytics";
+import { menuCategories, ownerAnalyticsRangePresets } from "./types";
 import {
   completeServiceRequest,
   createMenuModifier,
@@ -46,6 +55,11 @@ import {
 } from "./realtime";
 
 const ORDER_HISTORY_WINDOW_HOURS = 24;
+
+const optionalQueryString = z.preprocess(
+  (value) => (Array.isArray(value) ? value[0] : value),
+  z.string().optional(),
+);
 
 const uuidParamSchema = z.string().uuid();
 const idParamSchema = z.coerce.number().int().positive();
@@ -115,6 +129,15 @@ const serviceRequestSchema = z.object({
   note: z.string().trim().max(300).optional().nullable(),
 });
 
+const ownerAnalyticsQuerySchema = z.object({
+  range: z.preprocess(
+    (value) => (Array.isArray(value) ? value[0] : value),
+    z.enum(ownerAnalyticsRangePresets).optional(),
+  ),
+  from: optionalQueryString,
+  to: optionalQueryString,
+});
+
 const authLoginSchema = z.object({
   role: z.enum(["waiter", "kitchen", "admin", "owner"]),
   password: z.string().min(1).max(200),
@@ -126,6 +149,10 @@ function asyncHandler(
   return (req: Request, res: Response, next: NextFunction) => {
     handler(req, res, next).catch(next);
   };
+}
+
+function parseOwnerAnalyticsRange(query: Request["query"]) {
+  return resolveOwnerAnalyticsRange(ownerAnalyticsQuerySchema.parse(query));
 }
 
 const dbConnectionCodes = new Set([
@@ -363,6 +390,54 @@ export function createApp() {
     ownerOnly,
     asyncHandler(async (_req, res) => {
       res.json({ data: await getOwnerSummary() });
+    }),
+  );
+
+  app.get(
+    "/api/owner/analytics/summary",
+    ownerOnly,
+    asyncHandler(async (req, res) => {
+      res.json({ data: await getOwnerAnalyticsSummary(parseOwnerAnalyticsRange(req.query)) });
+    }),
+  );
+
+  app.get(
+    "/api/owner/analytics/sales",
+    ownerOnly,
+    asyncHandler(async (req, res) => {
+      res.json({ data: await getOwnerAnalyticsSales(parseOwnerAnalyticsRange(req.query)) });
+    }),
+  );
+
+  app.get(
+    "/api/owner/analytics/orders",
+    ownerOnly,
+    asyncHandler(async (req, res) => {
+      res.json({ data: await getOwnerAnalyticsOrders(parseOwnerAnalyticsRange(req.query)) });
+    }),
+  );
+
+  app.get(
+    "/api/owner/analytics/menu",
+    ownerOnly,
+    asyncHandler(async (req, res) => {
+      res.json({ data: await getOwnerAnalyticsMenu(parseOwnerAnalyticsRange(req.query)) });
+    }),
+  );
+
+  app.get(
+    "/api/owner/analytics/tables",
+    ownerOnly,
+    asyncHandler(async (req, res) => {
+      res.json({ data: await getOwnerAnalyticsTables(parseOwnerAnalyticsRange(req.query)) });
+    }),
+  );
+
+  app.get(
+    "/api/owner/analytics/operations",
+    ownerOnly,
+    asyncHandler(async (req, res) => {
+      res.json({ data: await getOwnerAnalyticsOperations(parseOwnerAnalyticsRange(req.query)) });
     }),
   );
 

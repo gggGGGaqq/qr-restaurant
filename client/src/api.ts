@@ -4,6 +4,18 @@ import type {
   MenuCategory,
   MenuItem,
   Order,
+  OwnerAnalyticsCategoryMetric,
+  OwnerAnalyticsDashboardData,
+  OwnerAnalyticsDishMetric,
+  OwnerAnalyticsMenu,
+  OwnerAnalyticsOperations,
+  OwnerAnalyticsOrders,
+  OwnerAnalyticsRangePreset,
+  OwnerAnalyticsRevenue,
+  OwnerAnalyticsSales,
+  OwnerAnalyticsSalesPoint,
+  OwnerAnalyticsTableMetric,
+  OwnerAnalyticsTables,
   OwnerSummary,
   RestaurantSettings,
   ServiceRequest,
@@ -43,7 +55,8 @@ function fallbackMessageByStatus(status: number): string {
 function toDisplayMoney(value: unknown): number {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return 0;
-  return amount > 0 && amount < 1000 ? amount * 1000 : amount;
+  const absoluteAmount = Math.abs(amount);
+  return absoluteAmount > 0 && absoluteAmount < 1000 ? amount * 1000 : amount;
 }
 
 export function normalizeMenuItem(item: MenuItem): MenuItem {
@@ -109,6 +122,151 @@ function normalizeTable(table: Table): Table {
     ...table,
     number: fixMojibake(table.number),
   };
+}
+
+function normalizeAnalyticsRevenue(revenue: OwnerAnalyticsRevenue): OwnerAnalyticsRevenue {
+  return {
+    ...revenue,
+    subtotal: toDisplayMoney(revenue.subtotal),
+    serviceFee: toDisplayMoney(revenue.serviceFee),
+    total: toDisplayMoney(revenue.total),
+  };
+}
+
+function normalizeAnalyticsSalesPoint(point: OwnerAnalyticsSalesPoint): OwnerAnalyticsSalesPoint {
+  return {
+    ...point,
+    subtotal: toDisplayMoney(point.subtotal),
+    serviceFee: toDisplayMoney(point.serviceFee),
+    revenue: toDisplayMoney(point.revenue),
+  };
+}
+
+function normalizeAnalyticsDishMetric(metric: OwnerAnalyticsDishMetric): OwnerAnalyticsDishMetric {
+  return {
+    ...metric,
+    name: fixMojibake(metric.name),
+    subtotal: toDisplayMoney(metric.subtotal),
+    serviceFee: toDisplayMoney(metric.serviceFee),
+    revenue: toDisplayMoney(metric.revenue),
+  };
+}
+
+function normalizeAnalyticsCategoryMetric(
+  metric: OwnerAnalyticsCategoryMetric,
+): OwnerAnalyticsCategoryMetric {
+  return {
+    ...metric,
+    subtotal: toDisplayMoney(metric.subtotal),
+    serviceFee: toDisplayMoney(metric.serviceFee),
+    revenue: toDisplayMoney(metric.revenue),
+    averageMenuPrice: metric.averageMenuPrice === null ? null : toDisplayMoney(metric.averageMenuPrice),
+  };
+}
+
+function normalizeOwnerAnalyticsSummary(summary: OwnerAnalyticsDashboardData["summary"]) {
+  return {
+    ...summary,
+    totalRevenue: toDisplayMoney(summary.totalRevenue),
+    subtotalRevenue: toDisplayMoney(summary.subtotalRevenue),
+    serviceFeeTotal: toDisplayMoney(summary.serviceFeeTotal),
+    revenueToday: toDisplayMoney(summary.revenueToday),
+    revenueThisWeek: toDisplayMoney(summary.revenueThisWeek),
+    revenueThisMonth: toDisplayMoney(summary.revenueThisMonth),
+    averageOrderValue: toDisplayMoney(summary.averageOrderValue),
+    mostPopularDish: summary.mostPopularDish ? normalizeAnalyticsDishMetric(summary.mostPopularDish) : null,
+    leastPopularDish: summary.leastPopularDish ? normalizeAnalyticsDishMetric(summary.leastPopularDish) : null,
+  };
+}
+
+function normalizeOwnerAnalyticsSales(sales: OwnerAnalyticsSales): OwnerAnalyticsSales {
+  return {
+    ...sales,
+    revenueByDay: sales.revenueByDay.map(normalizeAnalyticsSalesPoint),
+    revenueByWeek: sales.revenueByWeek.map(normalizeAnalyticsSalesPoint),
+    revenueByMonth: sales.revenueByMonth.map(normalizeAnalyticsSalesPoint),
+    dailySalesTrend: sales.dailySalesTrend.map(normalizeAnalyticsSalesPoint),
+    weeklySalesTrend: sales.weeklySalesTrend.map(normalizeAnalyticsSalesPoint),
+    monthlySalesTrend: sales.monthlySalesTrend.map(normalizeAnalyticsSalesPoint),
+    todayVsYesterday: {
+      ...sales.todayVsYesterday,
+      current: normalizeAnalyticsRevenue(sales.todayVsYesterday.current),
+      previous: normalizeAnalyticsRevenue(sales.todayVsYesterday.previous),
+      change: toDisplayMoney(sales.todayVsYesterday.change),
+    },
+    thisWeekVsPreviousWeek: {
+      ...sales.thisWeekVsPreviousWeek,
+      current: normalizeAnalyticsRevenue(sales.thisWeekVsPreviousWeek.current),
+      previous: normalizeAnalyticsRevenue(sales.thisWeekVsPreviousWeek.previous),
+      change: toDisplayMoney(sales.thisWeekVsPreviousWeek.change),
+    },
+    thisMonthVsPreviousMonth: {
+      ...sales.thisMonthVsPreviousMonth,
+      current: normalizeAnalyticsRevenue(sales.thisMonthVsPreviousMonth.current),
+      previous: normalizeAnalyticsRevenue(sales.thisMonthVsPreviousMonth.previous),
+      change: toDisplayMoney(sales.thisMonthVsPreviousMonth.change),
+    },
+  };
+}
+
+function normalizeOwnerAnalyticsMenu(menu: OwnerAnalyticsMenu): OwnerAnalyticsMenu {
+  return {
+    ...menu,
+    topSellingDishes: menu.topSellingDishes.map(normalizeAnalyticsDishMetric),
+    worstSellingDishes: menu.worstSellingDishes.map(normalizeAnalyticsDishMetric),
+    revenueByDish: menu.revenueByDish.map(normalizeAnalyticsDishMetric),
+    quantitySoldByDish: menu.quantitySoldByDish.map(normalizeAnalyticsDishMetric),
+    revenueByCategory: menu.revenueByCategory.map(normalizeAnalyticsCategoryMetric),
+    averagePriceByCategory: menu.averagePriceByCategory.map((item) => ({
+      ...item,
+      averagePrice: item.averagePrice === null ? null : toDisplayMoney(item.averagePrice),
+    })),
+    itemsNeverOrdered: menu.itemsNeverOrdered.map((item) => ({
+      ...item,
+      name: fixMojibake(item.name),
+      price: toDisplayMoney(item.price),
+    })),
+  };
+}
+
+function normalizeAnalyticsTableMetric(metric: OwnerAnalyticsTableMetric): OwnerAnalyticsTableMetric {
+  return {
+    ...metric,
+    tableNumber: fixMojibake(metric.tableNumber),
+    subtotal: toDisplayMoney(metric.subtotal),
+    serviceFee: toDisplayMoney(metric.serviceFee),
+    revenue: toDisplayMoney(metric.revenue),
+    averageOrderValue: toDisplayMoney(metric.averageOrderValue),
+  };
+}
+
+function normalizeOwnerAnalyticsTables(tables: OwnerAnalyticsTables): OwnerAnalyticsTables {
+  return {
+    ...tables,
+    tables: tables.tables.map(normalizeAnalyticsTableMetric),
+    mostActiveTables: tables.mostActiveTables.map(normalizeAnalyticsTableMetric),
+    tablesWithRejectedOrders: tables.tablesWithRejectedOrders.map(normalizeAnalyticsTableMetric),
+    currentActiveSessions: tables.currentActiveSessions.map((session) => ({
+      ...session,
+      tableNumber: fixMojibake(session.tableNumber),
+    })),
+  };
+}
+
+interface OwnerAnalyticsParams {
+  range: OwnerAnalyticsRangePreset;
+  from?: string;
+  to?: string;
+}
+
+function buildOwnerAnalyticsQuery(params: OwnerAnalyticsParams): string {
+  const search = new URLSearchParams({ range: params.range });
+  if (params.range === "custom") {
+    if (params.from) search.set("from", params.from);
+    if (params.to) search.set("to", params.to);
+  }
+
+  return search.toString();
 }
 
 interface RequestOptions {
@@ -404,6 +562,55 @@ export async function getOwnerSummary(): Promise<OwnerSummary> {
       ...item,
       name: fixMojibake(item.name),
     })),
+  };
+}
+
+export async function getOwnerAnalyticsDashboard(
+  params: OwnerAnalyticsParams,
+  signal?: AbortSignal,
+): Promise<OwnerAnalyticsDashboardData> {
+  const query = buildOwnerAnalyticsQuery(params);
+  const init = signal ? { signal } : {};
+  const [summary, sales, orders, menu, tables, operations] = await Promise.all([
+    request<OwnerAnalyticsDashboardData["summary"]>(
+      `/api/owner/analytics/summary?${query}`,
+      init,
+      { authRole: "owner" },
+    ),
+    request<OwnerAnalyticsSales>(
+      `/api/owner/analytics/sales?${query}`,
+      init,
+      { authRole: "owner" },
+    ),
+    request<OwnerAnalyticsOrders>(
+      `/api/owner/analytics/orders?${query}`,
+      init,
+      { authRole: "owner" },
+    ),
+    request<OwnerAnalyticsMenu>(
+      `/api/owner/analytics/menu?${query}`,
+      init,
+      { authRole: "owner" },
+    ),
+    request<OwnerAnalyticsTables>(
+      `/api/owner/analytics/tables?${query}`,
+      init,
+      { authRole: "owner" },
+    ),
+    request<OwnerAnalyticsOperations>(
+      `/api/owner/analytics/operations?${query}`,
+      init,
+      { authRole: "owner" },
+    ),
+  ]);
+
+  return {
+    summary: normalizeOwnerAnalyticsSummary(summary.data),
+    sales: normalizeOwnerAnalyticsSales(sales.data),
+    orders: orders.data,
+    menu: normalizeOwnerAnalyticsMenu(menu.data),
+    tables: normalizeOwnerAnalyticsTables(tables.data),
+    operations: operations.data,
   };
 }
 
