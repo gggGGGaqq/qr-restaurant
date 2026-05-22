@@ -110,6 +110,10 @@ interface ServiceRequestRow extends RowDataPacket {
   updated_at: Date;
 }
 
+interface ServiceRequestIdRow extends RowDataPacket {
+  id: string;
+}
+
 interface PopularItemRow extends RowDataPacket {
   menu_item_id: number;
   name: string;
@@ -889,9 +893,10 @@ export async function createServiceRequest(input: {
   sessionId: string;
   type: ServiceRequestType;
   note?: string | null;
-}): Promise<ServiceRequestDto> {
+}): Promise<{ request: ServiceRequestDto; created: boolean }> {
   await expireInactiveSessions();
-  const requestId = randomUUID();
+  let requestId: string = randomUUID();
+  let created = false;
 
   await withTransaction(async (connection) => {
     const [sessions] = await connection.execute<SessionRow[]>(
@@ -911,24 +916,48 @@ export async function createServiceRequest(input: {
       throw new HttpError(400, "Сессия не принадлежит этому столу");
     }
 
-    await connection.execute<ResultSetHeader>(
-      `INSERT INTO service_requests (id, table_id, session_id, type, status, note, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'OPEN', ?, NOW(), NOW())`,
-      [requestId, input.tableId, input.sessionId, input.type, input.note ?? null],
+    const [existingRequests] = await connection.execute<ServiceRequestIdRow[]>(
+      `SELECT id
+       FROM service_requests
+       WHERE session_id = ? AND type = ? AND status = 'OPEN'
+       ORDER BY created_at DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [input.sessionId, input.type],
     );
+
+    const existingRequest = existingRequests[0];
+    if (existingRequest) {
+      requestId = existingRequest.id;
+    } else {
+      await connection.execute<ResultSetHeader>(
+        `INSERT INTO service_requests (id, table_id, session_id, type, status, note, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'OPEN', ?, NOW(), NOW())`,
+        [requestId, input.tableId, input.sessionId, input.type, input.note ?? null],
+      );
+      created = true;
+    }
 
     await connection.execute<ResultSetHeader>(
       "UPDATE sessions SET last_activity = NOW() WHERE id = ?",
       [input.sessionId],
     );
 
-    await logSessionEvent(connection, input.sessionId, "SERVICE_REQUEST_CREATED", {
-      type: input.type,
-      tableId: input.tableId,
-    });
+    if (created) {
+      await logSessionEvent(connection, input.sessionId, "SERVICE_REQUEST_CREATED", {
+        type: input.type,
+        tableId: input.tableId,
+      });
+    }
   });
 
-  return assertFound(await getServiceRequestById(requestId), "Запрос официанту не найден после создания");
+  return {
+    request: assertFound(
+      await getServiceRequestById(requestId),
+      "Запрос официанту не найден после создания",
+    ),
+    created,
+  };
 }
 
 export async function getServiceRequestById(id: string): Promise<ServiceRequestDto | null> {
@@ -955,6 +984,24 @@ export async function listServiceRequests(
      WHERE sr.status IN (${placeholders})
      ORDER BY sr.created_at ASC`,
     statuses,
+  );
+
+  return rows.map(mapServiceRequest);
+}
+
+export async function listSessionServiceRequests(
+  sessionId: string,
+  statuses: ServiceRequestStatus[] = ["OPEN"],
+): Promise<ServiceRequestDto[]> {
+  if (statuses.length === 0) return [];
+  const placeholders = statuses.map(() => "?").join(", ");
+  const [rows] = await pool.execute<ServiceRequestRow[]>(
+    `SELECT sr.id, sr.table_id, t.number AS table_number, sr.session_id, sr.type, sr.status, sr.note, sr.created_at, sr.updated_at
+     FROM service_requests sr
+     JOIN ` + "`tables`" + ` t ON t.id = sr.table_id
+     WHERE sr.session_id = ? AND sr.status IN (${placeholders})
+     ORDER BY sr.created_at DESC`,
+    [sessionId, ...statuses],
   );
 
   return rows.map(mapServiceRequest);

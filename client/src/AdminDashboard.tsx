@@ -136,6 +136,12 @@ interface AdminScreenCopy {
   tableSaved: (name: string) => string;
   imageTypeError: string;
   imageSizeError: string;
+  noTables: string;
+  catalogTitle: string;
+  confirmRemovePhoto: string;
+  confirmStopListItem: (name: string) => string;
+  confirmStopListModifier: (name: string) => string;
+  confirmRemoveDraftModifier: (name: string) => string;
 }
 
 const defaultSettings: RestaurantSettings = {
@@ -226,6 +232,7 @@ function ImageUploadField({
   uploading,
   onFileSelected,
   onClear,
+  clearConfirmMessage,
 }: {
   label: string;
   value: string;
@@ -239,6 +246,7 @@ function ImageUploadField({
   uploading: boolean;
   onFileSelected: (file: File) => Promise<void>;
   onClear: () => void;
+  clearConfirmMessage?: string;
 }) {
   const inputId = useId();
 
@@ -258,7 +266,14 @@ function ImageUploadField({
       <div className="admin-upload-field__top">
         <span>{label}</span>
         {value && (
-          <button className="admin-upload-field__remove" type="button" onClick={onClear}>
+          <button
+            className="admin-upload-field__remove"
+            type="button"
+            onClick={() => {
+              if (clearConfirmMessage && !window.confirm(clearConfirmMessage)) return;
+              onClear();
+            }}
+          >
             <Trash2 size={14} />
             {removeLabel}
           </button>
@@ -354,6 +369,9 @@ function ModifierEditor({
 
   async function handleToggle() {
     if (!canSubmit) return;
+    if (modifier.active && !window.confirm(screenCopy.confirmStopListModifier(modifier.name))) {
+      return;
+    }
     setSaving(true);
     try {
       await onSave(modifier.id, buildPayload(!modifier.active));
@@ -536,6 +554,9 @@ function MenuItemCard({
 
   async function handleToggleActive() {
     if (!canSubmit) return;
+    if (item.active && !window.confirm(screenCopy.confirmStopListItem(item.name))) {
+      return;
+    }
     setSaving(true);
     try {
       await onSave(item.id, buildPayload(!item.active));
@@ -703,6 +724,7 @@ function MenuItemCard({
           uploading={uploadingImage}
           onFileSelected={handleImageUpload}
           onClear={() => setDraft((current) => ({ ...current, image: "" }))}
+          clearConfirmMessage={screenCopy.confirmRemovePhoto}
         />
 
         <div className="admin-item-card__actions">
@@ -999,6 +1021,12 @@ export function AdminDashboard() {
             tableSaved: (name: string) => `${name} үстелі жаңартылды.`,
             imageTypeError: "Тек JPG, PNG немесе WebP суретін таңдаңыз.",
             imageSizeError: "Сурет 5 МБ-тан аспауы керек.",
+            noTables: "Әзірге үстелдер қосылмаған.",
+            catalogTitle: "Тағамдар каталогы",
+            confirmRemovePhoto: "Жүктелген фотоны алып тастау керек пе?",
+            confirmStopListItem: (name: string) => `"${name}" позициясын стоп-параққа жіберу керек пе?`,
+            confirmStopListModifier: (name: string) => `"${name}" модификаторын стоп-параққа жасыру керек пе?`,
+            confirmRemoveDraftModifier: (name: string) => `"${name}" черновик модификаторын өшіру керек пе?`,
           }
         : {
             title: "Админ-панель",
@@ -1085,6 +1113,12 @@ export function AdminDashboard() {
             tableSaved: (name: string) => `Стол ${name} обновлён.`,
             imageTypeError: "Можно выбрать только JPG, PNG или WebP.",
             imageSizeError: "Изображение должно быть не больше 5 МБ.",
+            noTables: "Столы еще не добавлены.",
+            catalogTitle: "Каталог блюд",
+            confirmRemovePhoto: "Убрать загруженное фото?",
+            confirmStopListItem: (name: string) => `Отправить "${name}" в стоп-лист?`,
+            confirmStopListModifier: (name: string) => `Скрыть модификатор "${name}" в стоп-листе?`,
+            confirmRemoveDraftModifier: (name: string) => `Удалить черновой модификатор "${name}"?`,
           },
     [copy.common.save, copy.common.stopList, language],
   );
@@ -1454,11 +1488,13 @@ export function AdminDashboard() {
     { id: "tables", label: screenCopy.tables, icon: <QrCode size={16} /> },
     { id: "branding", label: screenCopy.branding, icon: <Palette size={16} /> },
   ];
+  const currentTabLabel = tabs.find((tab) => tab.id === currentTab)?.label ?? screenCopy.title;
 
   return (
     <DashboardShell
       className="admin-shell"
       title={screenCopy.title}
+      subtitle={currentTabLabel}
       icon="admin"
       metaLabel={screenCopy.menuCount(menu.length)}
       notice={notice}
@@ -1524,6 +1560,14 @@ export function AdminDashboard() {
           {currentTab === "menu" && (
             <div className="admin-menu-workbench">
               <section className="admin-panel admin-panel--dense admin-menu-controls">
+                <div className="section-title-row">
+                  <div>
+                    <p className="eyebrow">{screenCopy.menu}</p>
+                    <h2>{screenCopy.catalogTitle}</h2>
+                  </div>
+                  <span className="soft-pill">{screenCopy.foundItems(filteredMenu.length, menu.length)}</span>
+                </div>
+
                 <div className="admin-toolbar">
                   <div className="search-box admin-search">
                     <Search size={16} />
@@ -1602,13 +1646,12 @@ export function AdminDashboard() {
                     </button>
                   ))}
                 </div>
-
-                <span className="soft-pill">{screenCopy.foundItems(filteredMenu.length, menu.length)}</span>
               </section>
 
+              <div className={`admin-two-column admin-two-column--menu ${newItemFormOpen ? "has-builder" : ""}`}>
               {newItemFormOpen && (
                 <div className="admin-creation-grid admin-creation-grid--menu-form">
-                <form className="admin-creation-card admin-creation-card--menu" onSubmit={(event) => void submitNewItem(event)}>
+                <form className="admin-creation-card admin-creation-card--menu admin-creation-card--sticky" onSubmit={(event) => void submitNewItem(event)}>
                   <div className="section-title-row">
                     <div>
                       <p className="eyebrow">{screenCopy.menuBuilder}</p>
@@ -1675,6 +1718,7 @@ export function AdminDashboard() {
                     uploading={newItemImageBusy}
                     onFileSelected={handleNewItemImageUpload}
                     onClear={() => setNewItem((current) => ({ ...current, image: "" }))}
+                    clearConfirmMessage={screenCopy.confirmRemovePhoto}
                   />
 
                   <section className="admin-modifier-section">
@@ -1757,11 +1801,14 @@ export function AdminDashboard() {
                               <button
                                 className="button button-secondary"
                                 type="button"
-                                onClick={() =>
+                                onClick={() => {
+                                  if (!window.confirm(screenCopy.confirmRemoveDraftModifier(modifier.name))) {
+                                    return;
+                                  }
                                   setNewItemModifiers((current) =>
                                     renumberDraftModifiers(current.filter((item) => item.id !== modifier.id)),
-                                  )
-                                }
+                                  );
+                                }}
                               >
                                 <Trash2 size={14} />
                                 {screenCopy.remove}
@@ -1797,32 +1844,43 @@ export function AdminDashboard() {
               </div>
               )}
 
-              <section className="admin-item-list admin-item-list--catalog">
-                {filteredMenu.length > 0 ? (
-                  filteredMenu.map((item) => (
-                    <MenuItemCard
-                      key={item.id}
-                      item={item}
-                      language={language}
-                      categoryOptions={categoryOptions}
-                      screenCopy={screenCopy}
-                      onSave={saveMenuItem}
-                      onCreateModifier={createModifierForItem}
-                      onSaveModifier={saveModifier}
-                      onUploadImage={uploadImageFile}
-                    />
-                  ))
-                ) : (
-                  <div className="empty-state">{screenCopy.noItems}</div>
-                )}
+              <section className="admin-panel admin-panel--catalog">
+                <div className="section-title-row">
+                  <div>
+                    <p className="eyebrow">{screenCopy.menu}</p>
+                    <h3>{screenCopy.catalogTitle}</h3>
+                  </div>
+                  <span>{screenCopy.foundItems(filteredMenu.length, menu.length)}</span>
+                </div>
+
+                <div className="admin-item-list admin-item-list--catalog">
+                  {filteredMenu.length > 0 ? (
+                    filteredMenu.map((item) => (
+                      <MenuItemCard
+                        key={item.id}
+                        item={item}
+                        language={language}
+                        categoryOptions={categoryOptions}
+                        screenCopy={screenCopy}
+                        onSave={saveMenuItem}
+                        onCreateModifier={createModifierForItem}
+                        onSaveModifier={saveModifier}
+                        onUploadImage={uploadImageFile}
+                      />
+                    ))
+                  ) : (
+                    <div className="empty-state">{screenCopy.noItems}</div>
+                  )}
+                </div>
               </section>
+              </div>
             </div>
           )}
 
           {currentTab === "tables" && (
-            <div className="admin-section-stack">
+            <div className="admin-two-column admin-two-column--tables">
               <div className="admin-creation-grid">
-                <form className="admin-creation-card" onSubmit={(event) => void submitNewTable(event)}>
+                <form className="admin-creation-card admin-creation-card--sticky" onSubmit={(event) => void submitNewTable(event)}>
                   <div className="section-title-row">
                     <div>
                       <p className="eyebrow">{screenCopy.tables}</p>
@@ -1847,16 +1905,30 @@ export function AdminDashboard() {
                 </form>
               </div>
 
-              <section className="admin-table-grid">
-                {tables.map((table) => (
-                  <TableCard
-                    key={table.id}
-                    table={table}
-                    qrCode={qrCodes[table.id]}
-                    screenCopy={screenCopy}
-                    onSave={saveTableNumber}
-                  />
-                ))}
+              <section className="admin-panel admin-panel--catalog">
+                <div className="section-title-row">
+                  <div>
+                    <p className="eyebrow">{screenCopy.tables}</p>
+                    <h3>{screenCopy.tables}</h3>
+                  </div>
+                  <span>{tables.length}</span>
+                </div>
+
+                <div className="admin-table-grid">
+                  {tables.length > 0 ? (
+                    tables.map((table) => (
+                      <TableCard
+                        key={table.id}
+                        table={table}
+                        qrCode={qrCodes[table.id]}
+                        screenCopy={screenCopy}
+                        onSave={saveTableNumber}
+                      />
+                    ))
+                  ) : (
+                    <div className="empty-state">{screenCopy.noTables}</div>
+                  )}
+                </div>
               </section>
             </div>
           )}
@@ -1926,6 +1998,7 @@ export function AdminDashboard() {
                   uploading={coverImageBusy}
                   onFileSelected={handleCoverImageUpload}
                   onClear={() => setSettings((current) => ({ ...current, coverImage: null }))}
+                  clearConfirmMessage={screenCopy.confirmRemovePhoto}
                 />
 
                 <button className="button button-primary" type="button" onClick={() => void saveSettings()} disabled={savingSettings}>

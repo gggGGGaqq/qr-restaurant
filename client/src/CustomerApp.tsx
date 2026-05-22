@@ -21,6 +21,7 @@ import {
   getSession,
   getSettings,
   listMenu,
+  listSessionServiceRequests,
   listSessionOrders,
   normalizeOrder,
   normalizeServiceRequest,
@@ -342,6 +343,7 @@ export function CustomerApp() {
   const [loading, setLoading] = useState(() => isCustomerRouteOpen(getCustomerRouteFromUrl()));
   const [placing, setPlacing] = useState(false);
   const [serviceBusy, setServiceBusy] = useState<ServiceRequestType | null>(null);
+  const [openServiceRequestTypes, setOpenServiceRequestTypes] = useState<ServiceRequestType[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<MenuCategory>("hot");
@@ -354,6 +356,7 @@ export function CustomerApp() {
   const [addFeedback, setAddFeedback] = useState<AddFeedbackAnimation | null>(null);
   const [cartPulseKey, setCartPulseKey] = useState(0);
   const [orderCooldownUntil, setOrderCooldownUntil] = useState<number | null>(null);
+  const serviceBusyRef = useRef<ServiceRequestType | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasTableContext = isCustomerRouteOpen(customerRoute);
 
@@ -594,6 +597,14 @@ export function CustomerApp() {
     return copy.api.genericActionFailed;
   }
 
+  function markServiceRequestOpen(type: ServiceRequestType) {
+    setOpenServiceRequestTypes((current) => (current.includes(type) ? current : [...current, type]));
+  }
+
+  function replaceOpenServiceRequests(types: ServiceRequestType[]) {
+    setOpenServiceRequestTypes(Array.from(new Set(types)));
+  }
+
   function markImageFailed(itemId: number) {
     setFailedImages((current) => (current[itemId] ? current : { ...current, [itemId]: true }));
   }
@@ -602,6 +613,11 @@ export function CustomerApp() {
     const [nextSettings, nextMenu] = await Promise.all([getSettings(), listMenu()]);
     setSettings(nextSettings);
     setMenu(nextMenu);
+  }
+
+  async function reloadOpenServiceRequests(sessionId: string) {
+    const requests = await listSessionServiceRequests(sessionId);
+    replaceOpenServiceRequests(requests.map((request) => request.type));
   }
 
   useEffect(() => {
@@ -615,6 +631,9 @@ export function CustomerApp() {
       setSession(null);
       setMenu([]);
       setOrders([]);
+      setOpenServiceRequestTypes([]);
+      serviceBusyRef.current = null;
+      setServiceBusy(null);
       setError(null);
       setOrderCooldownUntil(null);
       setLoading(false);
@@ -638,7 +657,10 @@ export function CustomerApp() {
           throw new ApiError(copy.api.sessionInactive, 409);
         }
 
-        const sessionOrders = await listSessionOrders(nextSession.id);
+        const [sessionOrders, openServiceRequests] = await Promise.all([
+          listSessionOrders(nextSession.id),
+          listSessionServiceRequests(nextSession.id),
+        ]);
         if (!active) return;
 
         if (customerRoute.kind === "table") {
@@ -649,6 +671,7 @@ export function CustomerApp() {
         setSession(nextSession);
         setMenu(menuItems);
         setOrders(sessionOrders);
+        replaceOpenServiceRequests(openServiceRequests.map((request) => request.type));
         if (menuItems.length > 0) {
           setActiveCategory(menuItems[0].category);
         }
@@ -670,10 +693,12 @@ export function CustomerApp() {
 
     const socket = createOrderSocket({ sessionId: session.id });
     setSocketConnected(socket.connected);
+    void reloadOpenServiceRequests(session.id).catch(() => undefined);
 
     socket.on("connect", () => {
       setSocketConnected(true);
       setReconnecting(false);
+      void reloadOpenServiceRequests(session.id).catch(() => undefined);
     });
     socket.on("disconnect", () => {
       setSocketConnected(false);
@@ -703,9 +728,13 @@ export function CustomerApp() {
     });
     socket.on("service_request_updated", (rawRequest) => {
       const request = normalizeServiceRequest(rawRequest);
-      if (request.sessionId === session.id && request.status === "DONE") {
-        setLastActionText(screenCopy.serviceProcessed);
+      if (request.sessionId !== session.id) return;
+      if (request.status === "OPEN") {
+        markServiceRequestOpen(request.type);
+        return;
       }
+      void reloadOpenServiceRequests(session.id).catch(() => undefined);
+      setLastActionText(screenCopy.serviceProcessed);
     });
     socket.on("menu_updated", () => {
       void reloadMenuAndSettings();
@@ -876,7 +905,8 @@ export function CustomerApp() {
   }
 
   async function callService(type: ServiceRequestType) {
-    if (!session || serviceBusy) return;
+    if (!session || serviceBusyRef.current || openServiceRequestTypes.includes(type)) return;
+    serviceBusyRef.current = type;
     setServiceBusy(type);
     try {
       await createServiceRequest({
@@ -884,10 +914,12 @@ export function CustomerApp() {
         sessionId: session.id,
         type,
       });
+      markServiceRequestOpen(type);
       setLastActionText(screenCopy.requestSent(copy.serviceRequestShort[type]));
     } catch (requestError) {
       setError(formatError(requestError));
     } finally {
+      serviceBusyRef.current = null;
       setServiceBusy(null);
     }
   }
@@ -1298,12 +1330,13 @@ export function CustomerApp() {
             <section className="service-actions" aria-label={screenCopy.serviceRequestsAria}>
               {serviceActions.map((action) => {
                 const Icon = action.icon;
+                const requestPending = openServiceRequestTypes.includes(action.type);
                 return (
                   <button
                     key={action.type}
                     type="button"
                     onClick={() => void callService(action.type)}
-                    disabled={serviceBusy !== null || !isOnline}
+                    disabled={serviceBusy !== null || requestPending || !isOnline}
                   >
                     <Icon size={18} />
                     <span>{action.label}</span>

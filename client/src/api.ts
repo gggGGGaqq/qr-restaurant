@@ -323,6 +323,12 @@ export async function listSessionOrders(sessionId: string): Promise<Order[]> {
   return (await request<Order[]>(`/api/sessions/${sessionId}/orders`)).data.map(normalizeOrder);
 }
 
+export async function listSessionServiceRequests(sessionId: string): Promise<ServiceRequest[]> {
+  return (
+    await request<ServiceRequest[]>(`/api/sessions/${sessionId}/service-requests`)
+  ).data.map(normalizeServiceRequest);
+}
+
 export async function placeOrder(input: {
   orderId: string;
   tableId: number;

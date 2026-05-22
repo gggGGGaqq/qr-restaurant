@@ -3558,3 +3558,93 @@ h3 {
     min-height: 0;
   }
 }
+
+/* Admin page: align panels with the shared dashboard language */
+.admin-two-column--menu,
+.admin-two-column--tables {
+  align-items: start;
+}
+
+.admin-panel--catalog {
+  padding: 14px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.admin-panel--catalog .section-title-row {
+  margin-bottom: 0;
+}
+
+.admin-creation-card--sticky {
+  align-content: start;
+}
+
+.admin-panel--catalog .admin-item-list,
+.admin-panel--catalog .admin-table-grid {
+  min-width: 0;
+}
+
+.admin-item-list--catalog {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.admin-item-card__header > div,
+.admin-table-card__header > div,
+.admin-modifier-card__headline > div,
+.admin-card-note,
+.admin-upload__content,
+.admin-draft-modifier > div:first-child {
+  min-width: 0;
+}
+
+.admin-item-card__header h3,
+.admin-table-card__header h3,
+.admin-modifier-card__headline h4,
+.admin-card-note span,
+.admin-draft-modifier strong,
+.admin-draft-modifier span,
+.admin-upload__content strong,
+.admin-upload__content p,
+.admin-panel--catalog .section-title-row h3,
+.admin-menu-controls .section-title-row h2 {
+  overflow-wrap: anywhere;
+}
+
+.admin-table-card__actions .button,
+.admin-item-card__actions .button,
+.admin-item-card__quick-actions .button,
+.admin-modifier-card__actions .button,
+.admin-draft-modifier__actions .button {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .admin-two-column--menu.has-builder {
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  }
+
+  .admin-two-column--tables {
+    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  }
+
+  .admin-creation-card--sticky {
+    position: sticky;
+    top: calc(max(10px, env(safe-area-inset-top, 0px)) + 74px);
+  }
+}
+
+@media (max-width: 959px) {
+  .admin-panel--catalog {
+    padding: 12px;
+  }
+
+  .admin-item-list--catalog {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-creation-card--sticky {
+    position: static;
+  }
+}

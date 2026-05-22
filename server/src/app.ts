@@ -25,6 +25,7 @@ import {
   getTableSession,
   listMenuItems,
   listOrdersByStatus,
+  listSessionServiceRequests,
   listServiceRequests,
   listTables,
   transitionOrderStatus,
@@ -390,6 +391,14 @@ export function createApp() {
     }),
   );
 
+  app.get(
+    "/api/sessions/:sessionId/service-requests",
+    asyncHandler(async (req, res) => {
+      const sessionId = uuidParamSchema.parse(req.params.sessionId);
+      res.json({ data: await listSessionServiceRequests(sessionId, ["OPEN"]) });
+    }),
+  );
+
   app.post(
     "/api/orders",
     asyncHandler(async (req, res) => {
@@ -473,9 +482,15 @@ export function createApp() {
   app.post(
     "/api/service-requests",
     asyncHandler(async (req, res) => {
-      const request = await createServiceRequest(serviceRequestSchema.parse(req.body));
-      publishServiceRequestCreated(request);
-      res.status(201).json({ data: request });
+      const result = await createServiceRequest(serviceRequestSchema.parse(req.body));
+      if (result.created) {
+        publishServiceRequestCreated(result.request);
+      }
+
+      res.status(result.created ? 201 : 200).json({
+        data: result.request,
+        meta: { idempotent: !result.created },
+      });
     }),
   );
 
